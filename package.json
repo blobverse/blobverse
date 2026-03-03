@@ -1,0 +1,21 @@
+{
+  "name": "blobverse",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser-based 2D top-down .io battle royale game with AI agents",
+  "workspaces": [
+    "packages/shared",
+    "packages/client",
+    "packages/server"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=packages/server & npm run dev --workspace=packages/client",
+    "dev:client": "npm run dev --workspace=packages/client",
+    "dev:server": "npm run dev --workspace=packages/server",
+    "build": "npm run build --workspace=packages/shared && npm run build --workspace=packages/client && npm run build --workspace=packages/server",
+    "typecheck": "tsc --noEmit -p packages/shared && tsc --noEmit -p packages/client && tsc --noEmit -p packages/server"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
