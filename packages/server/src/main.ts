@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import { SERVER_TPS, TICK_INTERVAL_MS } from '@blobverse/shared';
 import { RoomManager, Matchmaker, Player } from './game/index.js';
 import { arenaManager } from './arena/ArenaManager.js';
-import { wdkManager, escrowManager } from './wallet/index.js';
+import { wdkManager, ENTRY_FEE_USD, escrowManager } from './wallet/index.js';
 
 // Static file serving for production
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -65,13 +65,13 @@ const startTime = Date.now();
 // HTTP Server (Health Check + API)
 // =============================================================================
 
-const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   // CORS headers
   const origin = req.headers.origin || '';
   if (ALLOWED_ORIGINS.includes(origin) || ALLOWED_ORIGINS.includes('*')) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -127,6 +127,42 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
   if (url === '/api/arena/status') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(arenaManager.getStatus()));
+    return;
+  }
+
+  // Escrow info for QR code display
+  if (url === '/api/arena/escrow-info') {
+    const escrowAddress = await wdkManager.getEscrowAddress();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      escrowAddress,
+      entryFeeUsd: ENTRY_FEE_USD,
+      network: 'Polygon',
+      token: 'USDC',
+      dryRun: wdkManager.isDryRun,
+    }));
+    return;
+  }
+
+  // Join arena — pay entry fee, get assigned agent
+  if (url === '/api/arena/join' && req.method === 'POST') {
+    const match = arenaManager.getCurrentMatch();
+    if (!match) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'No match available, please wait' }));
+      return;
+    }
+    // Pick a random agent from the current match to represent the user
+    const agents = match.agents || [];
+    const assignedAgent = agents[Math.floor(Math.random() * agents.length)];
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      dryRun: wdkManager.isDryRun,
+      assignedAgent: assignedAgent || null,
+      matchId: match.matchId,
+      entryFeePaid: ENTRY_FEE_USD,
+    }));
     return;
   }
 

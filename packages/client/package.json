@@ -12,6 +12,7 @@
   "dependencies": {
     "@blobverse/shared": "workspace:*",
     "pixi.js": "^8.0.0",
+    "qrcode.react": "^4.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },
