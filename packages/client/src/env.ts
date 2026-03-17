@@ -4,8 +4,14 @@
  */
 
 export const getApiBaseUrl = (): string => {
-  // In development, use localhost; in production, use the Railway URL
-  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+  const fromEnv = import.meta.env.VITE_API_BASE_URL;
+  if (fromEnv) return fromEnv;
+
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    return window.location.origin;
+  }
+
+  return 'http://localhost:3000';
 };
 
 export const getEnvironment = (): string => {
