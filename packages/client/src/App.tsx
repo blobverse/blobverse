@@ -102,7 +102,7 @@ export const App: React.FC = () => {
     switch (state.phase) {
       case 'menu':
         return (
-          <div className="w-screen h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center gap-8">
+          <div className="w-screen h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center gap-8 pointer-events-auto">
             <div className="text-center">
               <div className="text-6xl font-black text-white mb-4">🌊 Blobverse</div>
               <div className="text-xl text-gray-400">Choose Your Experience</div>
@@ -128,7 +128,7 @@ export const App: React.FC = () => {
 
       case 'arena':
         return (
-          <div className="w-screen h-screen bg-slate-900">
+          <div className="w-screen h-screen bg-slate-900 pointer-events-auto">
             <ArenaPage />
           </div>
         );
