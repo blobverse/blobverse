@@ -34,6 +34,13 @@ interface ArenaPageProps {
   apiBaseUrl?: string;
 }
 
+const PERSONALITY_OPTIONS = [
+  { value: 'random', label: 'Random' },
+  { value: 'aggressor', label: 'Aggressor' },
+  { value: 'survivor', label: 'Survivor' },
+  { value: 'opportunist', label: 'Opportunist' },
+] as const;
+
 export const ArenaPage: React.FC<ArenaPageProps> = ({
   apiBaseUrl = getApiBaseUrl(),
 }) => {
@@ -43,6 +50,7 @@ export const ArenaPage: React.FC<ArenaPageProps> = ({
   const [matchId, setMatchId] = useState<string | null>(null);
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [preferredPersonality, setPreferredPersonality] = useState<string>('random');
 
   // Fetch escrow info on mount
   useEffect(() => {
@@ -57,7 +65,14 @@ export const ArenaPage: React.FC<ArenaPageProps> = ({
     setPhase('joining');
     setError(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/api/arena/join`, { method: 'POST' });
+      const joinBody = preferredPersonality === 'random'
+        ? {}
+        : { preferredPersonality };
+      const res = await fetch(`${apiBaseUrl}/api/arena/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(joinBody),
+      });
       const data: JoinResult = await res.json();
       if (!data.success) {
         setError('No match available — please wait for the next one');
@@ -69,7 +84,7 @@ export const ArenaPage: React.FC<ArenaPageProps> = ({
 
       // In dry-run mode, simulate brief payment confirmation
       if (data.dryRun) {
-        await new Promise((r) => setTimeout(r, 2000));
+        await new Promise((r) => setTimeout(r, 3000));
       }
 
       setPhase('watching');
@@ -77,7 +92,7 @@ export const ArenaPage: React.FC<ArenaPageProps> = ({
       setError('Failed to join match');
       setPhase('entry');
     }
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, preferredPersonality]);
 
   const handleMatchEnd = useCallback(() => {
     // Fetch final match result for settlement display
@@ -112,7 +127,11 @@ export const ArenaPage: React.FC<ArenaPageProps> = ({
     <div className="flex h-screen bg-slate-900">
       {/* Left: Arena replay */}
       <div className="flex-1">
-        <ArenaView apiBaseUrl={apiBaseUrl} onMatchEnd={handleMatchEnd} />
+        <ArenaView
+          apiBaseUrl={apiBaseUrl}
+          onMatchEnd={handleMatchEnd}
+          highlightAgentId={assignedAgent?.id}
+        />
       </div>
 
       {/* Right: Entry / Status panel */}
@@ -183,6 +202,28 @@ export const ArenaPage: React.FC<ArenaPageProps> = ({
                 </div>
               </div>
 
+              <div className="bg-slate-900 rounded-lg p-3 space-y-2">
+                <div className="text-xs text-gray-400 uppercase font-bold">Agent Personality</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {PERSONALITY_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setPreferredPersonality(option.value)}
+                      className={`text-xs py-2 rounded border transition-all ${
+                        preferredPersonality === option.value
+                          ? 'bg-cyan-600 bg-opacity-25 border-cyan-500 text-cyan-200'
+                          : 'bg-slate-800 border-slate-700 text-gray-300 hover:border-slate-500'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-[11px] text-gray-500">
+                  Pick a style or use random assignment.
+                </div>
+              </div>
+
               {/* How it works */}
               <div className="bg-slate-900 rounded-lg p-3 space-y-2">
                 <div className="text-xs text-gray-400 uppercase font-bold">How It Works</div>
@@ -236,6 +277,12 @@ export const ArenaPage: React.FC<ArenaPageProps> = ({
               <div className="bg-slate-900 rounded-lg p-3">
                 <div className="text-xs text-gray-400 mb-1">Match ID</div>
                 <div className="text-xs font-mono text-gray-300">{matchId}</div>
+              </div>
+              <div className="bg-slate-900 rounded-lg p-3">
+                <div className="text-xs text-gray-400 mb-1">Selected Personality</div>
+                <div className="text-xs font-mono text-cyan-300 capitalize">
+                  {preferredPersonality}
+                </div>
               </div>
 
               <div className="text-center text-sm text-yellow-300 animate-pulse">

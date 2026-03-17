@@ -29,6 +29,19 @@ const MIME_TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
 };
 
+async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  if (chunks.length === 0) return {};
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf-8'));
+  } catch {
+    return {};
+  }
+}
+
 function serveStaticFile(url: string, res: ServerResponse): boolean {
   if (!SERVE_STATIC) return false;
   const filePath = join(CLIENT_DIST, url === '/' ? 'index.html' : url);
@@ -152,9 +165,18 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
       res.end(JSON.stringify({ error: 'No match available, please wait' }));
       return;
     }
-    // Pick a random agent from the current match to represent the user
+    const body = await readJsonBody(req);
+    const preferredPersonality = typeof body.preferredPersonality === 'string'
+      ? body.preferredPersonality.toLowerCase()
+      : 'random';
+
+    // Pick an agent by preferred personality first, fallback to random.
     const agents = match.agents || [];
-    const assignedAgent = agents[Math.floor(Math.random() * agents.length)];
+    const personalityMatches = preferredPersonality === 'random'
+      ? agents
+      : agents.filter((a) => a.personality === preferredPersonality);
+    const source = personalityMatches.length > 0 ? personalityMatches : agents;
+    const assignedAgent = source[Math.floor(Math.random() * source.length)];
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       success: true,
@@ -162,6 +184,7 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
       assignedAgent: assignedAgent || null,
       matchId: match.matchId,
       entryFeePaid: ENTRY_FEE_USD,
+      preferredPersonality,
     }));
     return;
   }

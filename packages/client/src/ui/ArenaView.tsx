@@ -41,6 +41,7 @@ export interface MatchResult {
 export interface ArenaViewProps {
   apiBaseUrl?: string;
   onMatchEnd?: () => void;
+  highlightAgentId?: string;
 }
 
 const formatTime = (seconds: number): string => {
@@ -74,6 +75,7 @@ const getPersonalityEmoji = (personality: string): string => {
 export const ArenaView: React.FC<ArenaViewProps> = ({
   apiBaseUrl = 'http://localhost:3000',
   onMatchEnd,
+  highlightAgentId,
 }) => {
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -220,6 +222,15 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
 
         {/* Right: Leaderboard & Kill Feed */}
         <div className="absolute top-4 right-4 w-56 space-y-4">
+          {highlightAgentId && (
+            <div className="bg-cyan-900 bg-opacity-30 backdrop-blur-sm border border-cyan-400 border-opacity-60 rounded-xl p-3">
+              <div className="text-[10px] text-cyan-300 uppercase tracking-wide font-bold">Your Agent</div>
+              <div className="text-sm text-white font-semibold mt-1">
+                {agents.find((a) => a.id === highlightAgentId)?.name || highlightAgentId}
+              </div>
+            </div>
+          )}
+
           {/* Leaderboard */}
           <div className="bg-slate-900 bg-opacity-85 backdrop-blur-sm border border-cyan-500 border-opacity-20 rounded-xl p-3">
             <div className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide">Leaderboard</div>
@@ -227,10 +238,13 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
             <div className="space-y-1">
               {leaderboard.map((entry, idx) => {
                 const agent = agents.find((a) => a.id === entry.id);
+                const isMine = highlightAgentId === entry.id;
                 return (
                   <div
                     key={entry.id}
-                    className="flex items-center gap-2 px-2 py-1 rounded text-xs text-gray-200"
+                    className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
+                      isMine ? 'bg-cyan-500 bg-opacity-20 text-cyan-200 border border-cyan-400 border-opacity-50' : 'text-gray-200'
+                    }`}
                   >
                     <span className="font-bold w-4 text-gray-400">{entry.rank}.</span>
                     <div
@@ -268,12 +282,15 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
           {agents.map((agent) => {
             const isAlive = currentFrame?.blobs.some((b) => b.id === agent.id) ?? false;
             const finalRank = matchResult?.rankings.find((r) => r.agentId === agent.id)?.rank ?? 0;
+            const isMine = highlightAgentId === agent.id;
 
             return (
               <div
                 key={agent.id}
                 className={`flex-shrink-0 bg-slate-900 rounded-lg p-3 border transition-all ${
-                  isAlive
+                  isMine
+                    ? 'border-cyan-400 shadow-lg shadow-cyan-500/30 ring-1 ring-cyan-400/50'
+                    : isAlive
                     ? 'border-cyan-500 border-opacity-50 shadow-lg shadow-cyan-500/20'
                     : 'border-slate-700 opacity-50'
                 }`}
@@ -287,6 +304,11 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
                       <div className="text-xs text-gray-400">{getPersonalityLabel(agent.personality)}</div>
                     </div>
                   </div>
+                  {isMine && (
+                    <div className="text-[10px] uppercase tracking-wide font-bold text-cyan-300">
+                      You
+                    </div>
+                  )}
 
                   {/* Stats */}
                   <div className="bg-slate-800 rounded px-2 py-1">
