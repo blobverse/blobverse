@@ -131,12 +131,12 @@ export class Input {
   private handleKeyDown(e: KeyboardEvent): void {
     switch (e.key.toLowerCase()) {
       case ' ':
-      case 'w':
         if (!this.state.isSplitPressed) {
           this.state.isSplitPressed = true;
           this.onSplit?.();
         }
         break;
+      case 'w':
       case 'e':
         if (!this.state.isEjectPressed) {
           this.state.isEjectPressed = true;
@@ -149,9 +149,9 @@ export class Input {
   private handleKeyUp(e: KeyboardEvent): void {
     switch (e.key.toLowerCase()) {
       case ' ':
-      case 'w':
         this.state.isSplitPressed = false;
         break;
+      case 'w':
       case 'e':
         this.state.isEjectPressed = false;
         break;

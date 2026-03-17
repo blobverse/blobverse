@@ -62,6 +62,15 @@ export const App: React.FC = () => {
           setState((prev) => ({ ...prev, gameState: newState }));
         });
       }
+      if ((game as any).onGameOver) {
+        (game as any).onGameOver((result: GameOverData) => {
+          setState((prev) => ({
+            ...prev,
+            phase: 'gameover',
+            gameOverData: result,
+          }));
+        });
+      }
       console.log('✨ Blobverse initialized');
     } catch (error) {
       console.error('❌ Failed to initialize game:', error);

@@ -27,6 +27,8 @@ import {
   checkEating,
   SpatialHashGrid,
   SpatialEntity,
+  GameStateSnapshot,
+  LeaderboardEntry,
 } from '@blobverse/shared';
 import { Renderer } from './Renderer';
 import { Camera } from './Camera';
@@ -48,6 +50,8 @@ const EATING_EXPRESSION_DURATION = 300;
 const INITIAL_AI_COUNT = 10;
 const AI_WANDER_SPEED = 0.8;
 const AI_TARGET_CHANGE_INTERVAL = 2000;
+const ROUND_DURATION_SECONDS = 30;
+const TOTAL_ROUNDS = 3;
 
 // Convert ticks to ms
 const SPLIT_COOLDOWN_MS = (SPLIT_COOLDOWN_TICKS / SERVER_TPS) * 1000; // 1 second
@@ -81,6 +85,14 @@ interface PelletEntity extends SpatialEntity {
   isEjected?: boolean;
 }
 
+export interface LocalGameOverPayload {
+  playerRank: number;
+  totalPlayers: number;
+  playerName: string;
+  rankings: Array<{ rank: number; name: string; mass: number; isPlayer: boolean }>;
+  stats: { blobsEaten: number; maxMass: number; survivalTime: number };
+}
+
 export class Game {
   private renderer: Renderer;
   private camera: Camera;
@@ -88,7 +100,11 @@ export class Game {
 
   // Game loop
   private running: boolean = false;
+  private gameEnded: boolean = false;
   private lastTime: number = 0;
+  private startTimeMs: number = 0;
+  private blobsEatenByPlayer: number = 0;
+  private maxPlayerMass: number = 0;
 
   // Blobs (including player and fragments)
   private blobs: Map<string, BlobEntity> = new Map();
@@ -112,6 +128,8 @@ export class Game {
 
   // Camera
   private cameraFollowsPlayer: boolean = true;
+  private stateListeners: Set<(state: GameStateSnapshot) => void> = new Set();
+  private gameOverListeners: Set<(payload: LocalGameOverPayload) => void> = new Set();
 
   private constructor(renderer: Renderer) {
     this.renderer = renderer;
@@ -464,10 +482,14 @@ export class Game {
   start(): void {
     if (this.running) return;
     this.running = true;
+    this.gameEnded = false;
     this.lastTime = performance.now();
+    this.startTimeMs = this.lastTime;
+    this.blobsEatenByPlayer = 0;
+    this.maxPlayerMass = this.getPlayerTotalMass();
     requestAnimationFrame((t) => this.gameLoop(t));
     console.log('🎮 Game started');
-    console.log('   SPACE/W = Split, E/Right-click = Eject');
+    console.log('   SPACE = Split, W/E/Right-click = Eject');
   }
 
   stop(): void {
@@ -543,6 +565,10 @@ export class Game {
     this.renderer.setDebugData('Mass', this.getPlayerTotalMass());
     this.renderer.setDebugData('Blobs', this.blobs.size);
     this.renderer.setDebugData('Fragments', this.playerBlobIds.size);
+
+    this.maxPlayerMass = Math.max(this.maxPlayerMass, this.getPlayerTotalMass());
+    this.emitState();
+    this.checkGameEnd();
   }
 
   private getPlayerCenter(): { x: number; y: number } {
@@ -718,6 +744,10 @@ export class Game {
     eater.sprite.expression = 'eating';
     this.eatingExpressionTimers.set(eater.id, EATING_EXPRESSION_DURATION);
 
+    if (eater.isPlayer && !eaten.isPlayer) {
+      this.blobsEatenByPlayer += 1;
+    }
+
     const colorHex = parseInt(BLOB_PALETTE[eaten.colorIndex].fill.replace('#', ''), 16);
     this.particleSystem.spawnEatParticles(eaten.x, eaten.y, colorHex, 8);
 
@@ -785,5 +815,115 @@ export class Game {
     this.particleSystem.destroy();
     this.killFeed.destroy();
     this.renderer.destroy();
+  }
+
+  onStateChange(listener: (state: GameStateSnapshot) => void): () => void {
+    this.stateListeners.add(listener);
+    listener(this.buildSnapshot());
+    return () => {
+      this.stateListeners.delete(listener);
+    };
+  }
+
+  onGameOver(listener: (payload: LocalGameOverPayload) => void): () => void {
+    this.gameOverListeners.add(listener);
+    return () => {
+      this.gameOverListeners.delete(listener);
+    };
+  }
+
+  private emitState(): void {
+    if (this.stateListeners.size === 0) return;
+    const snapshot = this.buildSnapshot();
+    for (const listener of this.stateListeners) {
+      listener(snapshot);
+    }
+  }
+
+  private buildSnapshot(): GameStateSnapshot {
+    const elapsedSec = (performance.now() - this.startTimeMs) / 1000;
+    const currentRound = Math.min(
+      TOTAL_ROUNDS,
+      Math.floor(elapsedSec / ROUND_DURATION_SECONDS) + 1
+    );
+    const roundEnd = currentRound * ROUND_DURATION_SECONDS;
+    const roundTimer = Math.max(0, roundEnd - elapsedSec);
+
+    const leaderboard = Array.from(this.blobs.values())
+      .filter((b) => b.isAlive)
+      .sort((a, b) => b.mass - a.mass)
+      .slice(0, 10)
+      .map((b, idx) => ({
+        id: b.id,
+        name: b.name,
+        mass: Math.round(b.mass),
+        rank: idx + 1,
+      }));
+
+    return {
+      tick: Math.floor(elapsedSec * SERVER_TPS),
+      roundState: this.running ? 'playing' : 'finished',
+      currentRound,
+      roundTimer,
+      blobs: Array.from(this.blobs.values())
+        .filter((b) => b.isAlive)
+        .map((b) => ({
+          id: b.id,
+          x: b.x,
+          y: b.y,
+          radius: b.radius,
+          color: BLOB_PALETTE[b.colorIndex].fill,
+          name: b.name,
+          expression: b.sprite.expression,
+          fragments: [],
+        })),
+      pellets: Array.from(this.pellets.values()).map((p) => ({
+        id: p.id,
+        x: p.x,
+        y: p.y,
+        mass: p.sprite.mass,
+        type: p.isEjected ? 'ejected' : 'normal',
+      })),
+      leaderboard,
+    };
+  }
+
+  private checkGameEnd(): void {
+    if (!this.running || this.gameEnded) return;
+
+    const elapsedSec = (performance.now() - this.startTimeMs) / 1000;
+    const playerAlive = Array.from(this.playerBlobIds).some((id) => this.blobs.get(id)?.isAlive);
+    const timeUp = elapsedSec >= ROUND_DURATION_SECONDS * TOTAL_ROUNDS;
+
+    if (!playerAlive || timeUp) {
+      this.gameEnded = true;
+      this.running = false;
+      const finalRankings = Array.from(this.blobs.values())
+        .filter((b) => b.isAlive)
+        .sort((a, b) => b.mass - a.mass)
+        .map((b, idx) => ({
+          rank: idx + 1,
+          name: b.name,
+          mass: Math.round(b.mass),
+          isPlayer: b.isPlayer,
+        }));
+      const playerRank = finalRankings.find((r) => r.isPlayer)?.rank ?? finalRankings.length + 1;
+
+      const payload: LocalGameOverPayload = {
+        playerRank,
+        totalPlayers: finalRankings.length,
+        playerName: 'Player',
+        rankings: finalRankings,
+        stats: {
+          blobsEaten: this.blobsEatenByPlayer,
+          maxMass: Math.round(this.maxPlayerMass),
+          survivalTime: Math.round(elapsedSec),
+        },
+      };
+
+      for (const listener of this.gameOverListeners) {
+        listener(payload);
+      }
+    }
   }
 }
