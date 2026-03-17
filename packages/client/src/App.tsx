@@ -100,6 +100,39 @@ export const App: React.FC = () => {
 
   const renderPhase = () => {
     switch (state.phase) {
+      case 'menu':
+        return (
+          <div className="w-screen h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center gap-8">
+            <div className="text-center">
+              <div className="text-6xl font-black text-white mb-4">🌊 Blobverse</div>
+              <div className="text-xl text-gray-400">Choose Your Experience</div>
+            </div>
+
+            <div className="flex gap-8">
+              <button
+                onClick={() => setState((prev) => ({ ...prev, phase: 'lobby' }))}
+                className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-lg text-lg transition-all"
+              >
+                🎮 Play Game
+              </button>
+
+              <button
+                onClick={() => setState((prev) => ({ ...prev, phase: 'arena' }))}
+                className="px-8 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-lg text-lg transition-all"
+              >
+                ⚔️ Arena Mode (Watch & Bet)
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'arena':
+        return (
+          <div className="w-screen h-screen bg-slate-900">
+            <ArenaPage />
+          </div>
+        );
+
       case 'lobby':
         return (
           <LobbyScreen
