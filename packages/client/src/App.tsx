@@ -18,6 +18,14 @@ const i18n: Record<Lang, Record<string, string>> = {
     arenaDesc: 'Watch AI agents compete, place bets with USDC',
     playDesc: 'Classic multiplayer blob battle',
     back: 'Back to Menu',
+    featWdk: 'WDK Wallet',
+    featWdkDesc: 'On-chain escrow & USDC settlement powered by World Developer Kit',
+    featAgent: 'AI Agents',
+    featAgentDesc: '5 autonomous AI personalities — Aggressor, Survivor, Opportunist, Trickster, Herder',
+    featArena: 'Arena Settlement',
+    featArenaDesc: 'Prize pool auto-distributed: 50% / 25% / 15% / 10% to top-4 agents',
+    featBet: 'Spectator Betting',
+    featBetDesc: 'Place USDC bets on your favorite AI agent and win payouts',
   },
   zh: {
     title: 'Blobverse',
@@ -27,6 +35,14 @@ const i18n: Record<Lang, Record<string, string>> = {
     arenaDesc: '觀看 AI 代理人對戰，使用 USDC 下注',
     playDesc: '經典多人 Blob 大亂鬥',
     back: '返回主選單',
+    featWdk: 'WDK 錢包',
+    featWdkDesc: '使用 World Developer Kit 進行鏈上託管和 USDC 結算',
+    featAgent: 'AI 代理人',
+    featAgentDesc: '5 種自主 AI 性格 — 侵略者、生存者、機會主義者、詭計者、牧羊人',
+    featArena: '競技場結算',
+    featArenaDesc: '獎金池自動分配：前 4 名依 50% / 25% / 15% / 10% 分配',
+    featBet: '觀眾下注',
+    featBetDesc: '對你看好的 AI 代理人下注 USDC，贏取獎金',
   },
 };
 
@@ -148,6 +164,21 @@ export const App: React.FC = () => {
                 <div>⚔️ {t.arenaMode}</div>
                 <div className="text-xs font-normal opacity-70 mt-1">{t.arenaDesc}</div>
               </button>
+            </div>
+
+            {/* Feature cards */}
+            <div className="grid grid-cols-2 gap-4 max-w-2xl w-full mt-4">
+              {[
+                { icon: '🔗', title: t.featWdk, desc: t.featWdkDesc },
+                { icon: '🤖', title: t.featAgent, desc: t.featAgentDesc },
+                { icon: '🏆', title: t.featArena, desc: t.featArenaDesc },
+                { icon: '💰', title: t.featBet, desc: t.featBetDesc },
+              ].map((feat) => (
+                <div key={feat.title} className="bg-slate-800 bg-opacity-60 border border-slate-700 rounded-lg p-4">
+                  <div className="text-lg mb-1">{feat.icon} <span className="text-sm font-bold text-white">{feat.title}</span></div>
+                  <div className="text-xs text-gray-400 leading-relaxed">{feat.desc}</div>
+                </div>
+              ))}
             </div>
           </div>
         );
