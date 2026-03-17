@@ -1,0 +1,124 @@
+# Blobverse — CI/CD Pipeline
+# Deploys server and client to Railway on push to main
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9'
+
+jobs:
+  # ==========================================================================
+  # Test & Build
+  # ==========================================================================
+  test:
+    name: Test & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Build shared
+        run: pnpm --filter @blobverse/shared build
+
+      - name: Build server
+        run: pnpm --filter @blobverse/server build
+
+      - name: Build client
+        run: pnpm --filter @blobverse/client build
+        env:
+          VITE_WS_URL: ${{ vars.VITE_WS_URL }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+
+  # ==========================================================================
+  # Deploy Server to Railway
+  # ==========================================================================
+  deploy-server:
+    name: Deploy Server
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: railway up --service blobverse-server
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+  # ==========================================================================
+  # Deploy Client to Railway (Static)
+  # ==========================================================================
+  deploy-client:
+    name: Deploy Client
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: |
+          pnpm --filter @blobverse/shared build
+          pnpm --filter @blobverse/client build
+        env:
+          VITE_WS_URL: ${{ vars.VITE_WS_URL }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: |
+          cd packages/client
+          railway up --service blobverse-client
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

@@ -1,0 +1,30 @@
+# Railway Configuration — Blobverse Game Server
+# https://docs.railway.app/reference/config-as-code
+
+[build]
+# Use Dockerfile
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+# Build context is monorepo root (needs shared package)
+# Railway will use the repo root automatically for monorepos
+
+[deploy]
+# Health check endpoint
+healthcheckPath = "/health"
+healthcheckTimeout = 10
+
+# Deployment settings
+numReplicas = 1
+sleepApplication = false
+
+# Resource limits (adjust based on plan)
+# startCommand = "node dist/main.js"
+
+# Restart policy
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[service]
+# Internal port (Railway handles external routing)
+internalPort = 3000

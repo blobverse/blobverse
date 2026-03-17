@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Main blob gradient -->
+    <radialGradient id="blobGrad" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#7DF9FF"/>
+      <stop offset="50%" stop-color="#4FC3F7"/>
+      <stop offset="100%" stop-color="#1565C0"/>
+    </radialGradient>
+    <!-- Glow effect -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Shadow -->
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#0D47A1" flood-opacity="0.4"/>
+    </filter>
+    <!-- Small blob gradients -->
+    <radialGradient id="smallGrad1" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#FF8A80"/>
+      <stop offset="100%" stop-color="#D32F2F"/>
+    </radialGradient>
+    <radialGradient id="smallGrad2" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#B9F6CA"/>
+      <stop offset="100%" stop-color="#2E7D32"/>
+    </radialGradient>
+    <radialGradient id="smallGrad3" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#FFE082"/>
+      <stop offset="100%" stop-color="#F9A825"/>
+    </radialGradient>
+    <!-- Background gradient -->
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#1A1A2E"/>
+      <stop offset="100%" stop-color="#0F0F1A"/>
+    </radialGradient>
+    <!-- Grid pattern -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff" stroke-width="0.3" opacity="0.1"/>
+    </pattern>
+    <!-- Star field -->
+    <filter id="starGlow">
+      <feGaussianBlur stdDeviation="1.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="64" fill="url(#bgGrad)"/>
+
+  <!-- Grid overlay -->
+  <rect width="512" height="512" rx="64" fill="url(#grid)"/>
+
+  <!-- Tiny dots / food particles -->
+  <circle cx="80" cy="100" r="3" fill="#FF5252" opacity="0.6"/>
+  <circle cx="420" cy="80" r="2.5" fill="#69F0AE" opacity="0.5"/>
+  <circle cx="130" cy="400" r="2" fill="#FFD740" opacity="0.5"/>
+  <circle cx="400" cy="390" r="3" fill="#E040FB" opacity="0.4"/>
+  <circle cx="60" cy="260" r="2" fill="#40C4FF" opacity="0.5"/>
+  <circle cx="450" cy="250" r="2.5" fill="#FF6E40" opacity="0.4"/>
+  <circle cx="200" cy="440" r="2" fill="#B2FF59" opacity="0.5"/>
+  <circle cx="340" cy="70" r="2" fill="#FF80AB" opacity="0.4"/>
+  <circle cx="170" cy="80" r="2" fill="#18FFFF" opacity="0.4"/>
+  <circle cx="350" cy="430" r="2.5" fill="#FFFF00" opacity="0.3"/>
+
+  <!-- Small blob 1 (red, top-left, being chased) -->
+  <g filter="url(#glow)" opacity="0.85">
+    <ellipse cx="120" cy="150" rx="28" ry="25" fill="url(#smallGrad1)" transform="rotate(-15 120 150)"/>
+    <!-- Eyes -->
+    <ellipse cx="113" cy="144" rx="5" ry="6" fill="white"/>
+    <ellipse cx="129" cy="144" rx="5" ry="6" fill="white"/>
+    <circle cx="115" cy="145" r="2.5" fill="#1A1A2E"/>
+    <circle cx="131" cy="145" r="2.5" fill="#1A1A2E"/>
+  </g>
+
+  <!-- Small blob 2 (green, right) -->
+  <g filter="url(#glow)" opacity="0.8">
+    <ellipse cx="400" cy="180" rx="22" ry="20" fill="url(#smallGrad2)" transform="rotate(10 400 180)"/>
+    <ellipse cx="394" cy="175" rx="4" ry="5" fill="white"/>
+    <ellipse cx="408" cy="175" rx="4" ry="5" fill="white"/>
+    <circle cx="395" cy="176" r="2" fill="#1A1A2E"/>
+    <circle cx="409" cy="176" r="2" fill="#1A1A2E"/>
+  </g>
+
+  <!-- Small blob 3 (yellow, bottom-left) -->
+  <g filter="url(#glow)" opacity="0.75">
+    <ellipse cx="140" cy="370" rx="20" ry="18" fill="url(#smallGrad3)" transform="rotate(5 140 370)"/>
+    <ellipse cx="134" cy="365" rx="4" ry="4.5" fill="white"/>
+    <ellipse cx="147" cy="365" rx="4" ry="4.5" fill="white"/>
+    <circle cx="135" cy="366" r="2" fill="#1A1A2E"/>
+    <circle cx="148" cy="366" r="2" fill="#1A1A2E"/>
+  </g>
+
+  <!-- Main blob (large, center) -->
+  <g filter="url(#shadow)">
+    <!-- Organic blob shape using path -->
+    <path d="M 256 160
+             C 310 155, 355 175, 370 215
+             C 385 255, 380 295, 360 325
+             C 340 355, 300 370, 256 372
+             C 212 370, 172 355, 152 325
+             C 132 295, 127 255, 142 215
+             C 157 175, 202 155, 256 160 Z"
+          fill="url(#blobGrad)" filter="url(#glow)"/>
+
+    <!-- Shine / highlight -->
+    <ellipse cx="230" cy="210" rx="35" ry="20" fill="white" opacity="0.15" transform="rotate(-20 230 210)"/>
+
+    <!-- Left eye -->
+    <ellipse cx="225" cy="248" rx="22" ry="26" fill="white"/>
+    <circle cx="230" cy="250" r="12" fill="#1A1A2E"/>
+    <circle cx="234" cy="245" r="4.5" fill="white"/>
+
+    <!-- Right eye -->
+    <ellipse cx="290" cy="248" rx="22" ry="26" fill="white"/>
+    <circle cx="295" cy="250" r="12" fill="#1A1A2E"/>
+    <circle cx="299" cy="245" r="4.5" fill="white"/>
+
+    <!-- Confident smile -->
+    <path d="M 235 290 Q 256 315, 278 290" fill="none" stroke="#0D47A1" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- Text: BLOBVERSE -->
+  <text x="256" y="460" text-anchor="middle" font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="52" letter-spacing="4">
+    <tspan fill="#7DF9FF" stroke="#1565C0" stroke-width="1">BLOB</tspan><tspan fill="#FFFFFF">VERSE</tspan>
+  </text>
+</svg>

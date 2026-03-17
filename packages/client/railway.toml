@@ -1,0 +1,23 @@
+# Railway Configuration — Blobverse Game Client (Static)
+# https://docs.railway.app/reference/config-as-code
+
+[build]
+# Use Nixpacks for Node.js static build
+builder = "nixpacks"
+
+# Build command (from monorepo root)
+buildCommand = "cd ../.. && pnpm install && pnpm --filter @blobverse/shared build && pnpm --filter @blobverse/client build"
+
+# Watch paths for rebuild triggers
+watchPatterns = ["packages/client/**", "packages/shared/**"]
+
+[deploy]
+# Static file serving
+staticDirectory = "dist"
+
+# SPA fallback (all routes → index.html)
+# Railway handles this automatically for static sites
+
+[service]
+# No internal port needed for static sites
+# Railway serves from CDN

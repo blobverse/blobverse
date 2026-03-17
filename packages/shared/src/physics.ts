@@ -1,6 +1,6 @@
 // Blobverse — Physics (pure functions, shared client/server)
 
-import { RADIUS_FACTOR, EATING_MASS_RATIO, OVERLAP_RATIO } from './constants';
+import { RADIUS_FACTOR, EATING_MASS_RATIO, OVERLAP_RATIO } from './constants.js';
 
 export function calculateRadius(mass: number): number {
   return Math.sqrt(mass) * RADIUS_FACTOR;
