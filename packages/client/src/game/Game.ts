@@ -147,7 +147,13 @@ export class Game {
 
   static async create(): Promise<Game> {
     const renderer = await Renderer.create();
-    document.getElementById('root')?.appendChild(renderer.getCanvas());
+    const target =
+      document.getElementById('canvas-container') ??
+      document.getElementById('root');
+    if (target) {
+      target.innerHTML = '';
+      target.appendChild(renderer.getCanvas());
+    }
 
     const game = new Game(renderer);
 
