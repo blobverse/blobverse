@@ -83,7 +83,7 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
   // Routes
   const url = req.url || '/';
 
-  if (url === '/health' || url === '/') {
+  if (url === '/health' || (url === '/' && !SERVE_STATIC)) {
     const stats = matchmaker.getStats();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({

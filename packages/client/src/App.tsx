@@ -3,9 +3,10 @@ import { Game } from './game';
 import { LobbyScreen } from './ui/LobbyScreen';
 import { GameHUD } from './ui/GameHUD';
 import { GameOverScreen, GameOverData } from './ui/GameOverScreen';
+import { ArenaPage } from './ArenaPage';
 import type { GameStateSnapshot } from '@blobverse/shared';
 
-type GamePhase = 'lobby' | 'countdown' | 'playing' | 'gameover';
+type GamePhase = 'menu' | 'lobby' | 'countdown' | 'playing' | 'gameover' | 'arena';
 
 interface GameContextState {
   phase: GamePhase;
@@ -19,7 +20,7 @@ export const App: React.FC = () => {
   const gameRef = useRef<Game | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [state, setState] = useState<GameContextState>({
-    phase: 'lobby',
+    phase: 'menu',
     gameState: null,
     playerId: null,
     playerColor: '#FFD700',
