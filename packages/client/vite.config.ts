@@ -9,12 +9,13 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
 
     // Environment variables exposed to client
+    // In production (same-origin), use empty string so URLs are relative
     define: {
       'import.meta.env.VITE_WS_URL': JSON.stringify(
-        env.VITE_WS_URL || 'ws://localhost:3000'
+        env.VITE_WS_URL || (mode === 'production' ? '' : 'ws://localhost:3000')
       ),
       'import.meta.env.VITE_API_URL': JSON.stringify(
-        env.VITE_API_URL || 'http://localhost:3000'
+        env.VITE_API_URL || (mode === 'production' ? '' : 'http://localhost:3000')
       ),
     },
 

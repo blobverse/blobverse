@@ -47,6 +47,16 @@ export interface RankingEntry {
   rank: number;
 }
 
+export interface SettlementInfo {
+  matchId: string;
+  agentCount: number;
+  totalPoolUsd: number;
+  entryFeeUsd: number;
+  settled: boolean;
+  prizes: Array<{ rank: number; agentId: string; amountUsd: number; txHash: string }>;
+  distribution: { first: number; second: number; third: number; platform: number };
+}
+
 export interface MatchResult {
   matchId: string;
   startedAt: number;
@@ -57,6 +67,7 @@ export interface MatchResult {
   killLog: KillEvent[];
   replayFrames: GameStateSnapshot[];
   winner: AgentMeta;
+  settlement?: SettlementInfo;
 }
 
 // =============================================================================

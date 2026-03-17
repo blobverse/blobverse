@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import type { GameStateSnapshot } from '@blobverse/shared';
+import { SettlementDisplay } from './SettlementDisplay';
 
 export interface AIAgentInfo {
   id: string;
@@ -12,6 +13,18 @@ export interface AIAgentInfo {
   color: string;
 }
 
+export interface Settlement {
+  matchId: string;
+  totalPool: number;
+  distributions: Array<{
+    agentId: string;
+    rank: number;
+    amount: number;
+    percentage: number;
+  }>;
+  timestamp: number;
+}
+
 export interface MatchResult {
   matchId: string;
   startedAt: number;
@@ -22,6 +35,7 @@ export interface MatchResult {
   killLog: Array<{ timestamp: number; killerId: string; victimId: string }>;
   replayFrames: GameStateSnapshot[];
   winner: AIAgentInfo;
+  settlement?: Settlement;
 }
 
 export interface ArenaViewProps {
@@ -58,7 +72,7 @@ const getPersonalityEmoji = (personality: string): string => {
 };
 
 export const ArenaView: React.FC<ArenaViewProps> = ({
-  apiBaseUrl = 'http://localhost:3200',
+  apiBaseUrl = 'http://localhost:3000',
   onMatchEnd,
 }) => {
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
@@ -66,6 +80,7 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
   const [leaderboard, setLeaderboard] = useState<Array<{ id: string; name: string; mass: number; rank: number }>>([]);
   const [killFeed, setKillFeed] = useState<Array<{ id: string; killer: string; killed: string; timestamp: number }>>([]);
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
+  const [settlement, setSettlement] = useState<Settlement | null>(null);
   const [agents, setAgents] = useState<AIAgentInfo[]>([]);
   const [replayFrames, setReplayFrames] = useState<GameStateSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,6 +103,9 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
         setMatchResult(data);
         setAgents(data.agents);
         setReplayFrames(data.replayFrames);
+        if (data.settlement) {
+          setSettlement(data.settlement);
+        }
         setCurrentFrameIndex(0);
         setIsPlaying(true);
       } catch (err) {
@@ -316,6 +334,9 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Settlement Display Modal */}
+      <SettlementDisplay settlement={settlement} onClose={() => setSettlement(null)} />
     </div>
   );
 };

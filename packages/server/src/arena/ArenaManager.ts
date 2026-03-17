@@ -2,6 +2,7 @@
 // Runs a new match every MATCH_INTERVAL_MS, keeps history of last N matches.
 
 import { ArenaMatch, MatchResult } from './ArenaMatch.js';
+import { escrowManager } from '../wallet/index.js';
 
 const MATCH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes between matches
 const MAX_HISTORY = 10;
@@ -70,6 +71,30 @@ export class ArenaManager {
       this.matchHistory.pop();
     }
     console.log(`[Arena] Match ${result.matchId} complete. Winner: ${result.winner.name} (${result.winner.personality})`);
+
+    // WDK Settlement — collect fees and distribute prizes asynchronously
+    this.settleMatch(result).catch(err => {
+      console.error(`[Arena] Settlement failed for ${result.matchId}:`, err);
+    });
+  }
+
+  private async settleMatch(result: MatchResult): Promise<void> {
+    const agentIds = result.agents.map(a => a.id);
+
+    // Collect entry fees
+    await escrowManager.collectMatchFees(result.matchId, agentIds);
+
+    // Distribute prizes based on rankings
+    const rankings = result.rankings.map(r => ({
+      agentId: r.agentId,
+      rank: r.rank,
+    }));
+    const settlement = await escrowManager.settleMatch(result.matchId, rankings);
+
+    if (settlement) {
+      // Attach settlement info to match result for API consumers
+      result.settlement = escrowManager.getSettlementSummary(result.matchId) as MatchResult['settlement'];
+    }
   }
 
   // ===========================================================================

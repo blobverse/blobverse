@@ -1,9 +1,10 @@
 import { AIPersonality } from '@blobverse/shared';
+import type { WDKManager } from '../wallet/wdk-manager.js';
 
 /**
  * Agent Brain — AI Agent 的經濟決策系統
  * 用於決定：
- * 1. 是否加入比賽（基於餘額、勝率、入場費）
+ * 1. 是否加入比賽（基於真實錢包餘額、勝率、入場費）
  * 2. 選擇哪個人格（基於對手歷史）
  * 3. 是否調整策略（基於最近成績）
  */
@@ -13,7 +14,7 @@ export interface AgentStats {
   wins: number;
   losses: number;
   totalEarnings: number;
-  currentBalance: number;
+  currentBalance: number; // 本地追蹤，用於歷史記錄
 }
 
 export interface AgentMemory {
@@ -28,10 +29,14 @@ export interface AgentMemory {
 }
 
 export class AgentBrain {
+  private agentId: string;
+  private wdkManager: WDKManager | null = null;
   private stats: AgentStats;
   private memory: AgentMemory;
 
-  constructor(initialBalance: number = 1.0) {
+  constructor(agentId: string, wdkManager?: WDKManager, initialBalance: number = 1.0) {
+    this.agentId = agentId;
+    this.wdkManager = wdkManager || null;
     this.stats = {
       totalMatches: 0,
       wins: 0,
@@ -55,13 +60,30 @@ export class AgentBrain {
   /**
    * 決定是否加入比賽
    * 規則：
-   * - 餘額 > 入場費 × 2（確保有至少一場備用費）
+   * - 錢包餘額 > 入場費 × 2（確保有至少一場備用費）
    * - 連輸會變保守（只有勝率 > 50% 才加入）
    * - 連贏會變積極（任何時候都加入）
+   *
+   * @param entryFeeUnits USDC base units (6 decimals). 例如 $0.25 = 250_000n
    */
-  shouldJoinMatch(entryFee: number): boolean {
-    // 資金檢查
-    if (this.stats.currentBalance < entryFee * 2) {
+  async shouldJoinMatch(entryFeeUnits: bigint): Promise<boolean> {
+    // 取得真實錢包餘額
+    let balance: bigint;
+    if (this.wdkManager) {
+      try {
+        balance = await this.wdkManager.getAgentBalance(this.agentId);
+      } catch (err) {
+        console.warn(`[AgentBrain] Failed to get wallet balance for ${this.agentId}`, err);
+        // Fallback to local balance (converted to base units)
+        balance = BigInt(Math.floor(this.stats.currentBalance * 1_000_000));
+      }
+    } else {
+      // 無 WDK manager 時，使用本地餘額
+      balance = BigInt(Math.floor(this.stats.currentBalance * 1_000_000));
+    }
+
+    // 資金檢查：需要至少 2 倍入場費
+    if (balance < entryFeeUnits * 2n) {
       return false;
     }
 
@@ -194,10 +216,21 @@ export class AgentBrain {
   }
 
   /**
+   * 取得 Agent ID
+   */
+  getId(): string {
+    return this.agentId;
+  }
+
+  /**
    * 從數據恢復
    */
-  static deserialize(data: { stats: AgentStats; memory: AgentMemory }): AgentBrain {
-    const brain = new AgentBrain(data.stats.currentBalance);
+  static deserialize(
+    agentId: string,
+    data: { stats: AgentStats; memory: AgentMemory },
+    wdkManager?: WDKManager
+  ): AgentBrain {
+    const brain = new AgentBrain(agentId, wdkManager, data.stats.currentBalance);
     brain['stats'] = data.stats;
     brain['memory'] = data.memory;
     return brain;

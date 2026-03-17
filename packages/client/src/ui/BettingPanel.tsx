@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { AIAgentInfo } from './ArenaView';
 
 export interface BettingPanelProps {
@@ -14,6 +14,7 @@ export interface BettingPanelProps {
     userWon: boolean;
     payout: number;
   };
+  apiBaseUrl?: string;
 }
 
 const BET_AMOUNTS = [
@@ -31,9 +32,41 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
   onBet,
   matchInProgress,
   matchResult,
+  apiBaseUrl = 'http://localhost:3000',
 }) => {
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [selectedAmount, setSelectedAmount] = useState(0.25);
+  const [agentBalances, setAgentBalances] = useState<Record<string, number>>({});
+  const [loadingBalances, setLoadingBalances] = useState(false);
+
+  // Fetch agent wallet balances
+  useEffect(() => {
+    const fetchBalances = async () => {
+      try {
+        setLoadingBalances(true);
+        const response = await fetch(`${apiBaseUrl}/api/wallet/status`);
+        if (response.ok) {
+          const data = await response.json();
+          const balances: Record<string, number> = {};
+          data.agents?.forEach((agent: any) => {
+            balances[agent.id] = agent.balance;
+          });
+          setAgentBalances(balances);
+        }
+      } catch (err) {
+        console.error('Error fetching wallet balances:', err);
+      } finally {
+        setLoadingBalances(false);
+      }
+    };
+
+    if (walletConnected) {
+      fetchBalances();
+      // Refresh every 10 seconds
+      const interval = setInterval(fetchBalances, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [walletConnected, apiBaseUrl]);
 
   const handleBet = () => {
     if (selectedAgent && selectedAmount > 0) {

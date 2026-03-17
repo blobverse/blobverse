@@ -3,9 +3,49 @@
 
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
+import { readFileSync, existsSync, statSync } from 'fs';
+import { join, extname } from 'path';
+import { fileURLToPath } from 'url';
 import { SERVER_TPS, TICK_INTERVAL_MS } from '@blobverse/shared';
 import { RoomManager, Matchmaker, Player } from './game/index.js';
 import { arenaManager } from './arena/ArenaManager.js';
+import { wdkManager, escrowManager } from './wallet/index.js';
+
+// Static file serving for production
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const CLIENT_DIST = join(__dirname, '../../client/dist');
+const SERVE_STATIC = existsSync(join(CLIENT_DIST, 'index.html'));
+
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+};
+
+function serveStaticFile(url: string, res: ServerResponse): boolean {
+  if (!SERVE_STATIC) return false;
+  const filePath = join(CLIENT_DIST, url === '/' ? 'index.html' : url);
+  // Prevent directory traversal
+  if (!filePath.startsWith(CLIENT_DIST)) return false;
+  try {
+    const stat = statSync(filePath);
+    if (stat.isFile()) {
+      const ext = extname(filePath);
+      const content = readFileSync(filePath);
+      res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+      res.end(content);
+      return true;
+    }
+  } catch {}
+  return false;
+}
 
 // Configuration
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -101,6 +141,50 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
       res.end(JSON.stringify({ error: 'Match not found' }));
     }
     return;
+  }
+
+  // Wallet API
+  if (url === '/api/wallet/status') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      dryRun: wdkManager.isDryRun,
+      agentWallets: wdkManager.getAllAgentWallets(),
+    }));
+    return;
+  }
+
+  if (url === '/api/wallet/settlements') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      settlements: escrowManager.getRecentSettlements(),
+    }));
+    return;
+  }
+
+  const settlementRoute = url.match(/^\/api\/wallet\/settlement\/(.+)$/);
+  if (settlementRoute) {
+    const summary = escrowManager.getSettlementSummary(settlementRoute[1]);
+    if (summary) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(summary));
+    } else {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Settlement not found' }));
+    }
+    return;
+  }
+
+  // Try serving static files (production: client dist)
+  if (serveStaticFile(url, res)) return;
+
+  // SPA fallback: serve index.html for non-API routes
+  if (SERVE_STATIC && !url.startsWith('/api/')) {
+    try {
+      const html = readFileSync(join(CLIENT_DIST, 'index.html'));
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(html);
+      return;
+    } catch {}
   }
 
   // 404
@@ -258,7 +342,13 @@ function handleDisconnect(ws: WebSocket) {
 // Start Server
 // =============================================================================
 
-arenaManager.start();
+// Initialize WDK wallets (async, non-blocking)
+wdkManager.initialize().then(() => {
+  arenaManager.start();
+}).catch(err => {
+  console.error('[WDK] Init error, starting arena without wallet:', err);
+  arenaManager.start();
+});
 
 httpServer.listen(PORT, () => {
   console.log(`
