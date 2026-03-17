@@ -62,7 +62,6 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
 
     if (walletConnected) {
       fetchBalances();
-      // Refresh every 10 seconds
       const interval = setInterval(fetchBalances, 10000);
       return () => clearInterval(interval);
     }
@@ -84,7 +83,7 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
     <div className="bg-slate-800 border-l border-slate-700 w-96 h-full flex flex-col overflow-y-auto">
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700 p-4 sticky top-0">
-        <h2 className="text-lg font-bold text-white mb-2">WDK 下注</h2>
+        <h2 className="text-lg font-bold text-white mb-2">WDK Betting</h2>
 
         {/* Wallet Connection */}
         {!walletConnected ? (
@@ -92,16 +91,16 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
             onClick={onConnect}
             className="w-full py-2 px-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-bold rounded-lg transition-all"
           >
-            🔌 連接 WDK 錢包
+            Connect WDK Wallet
           </button>
         ) : (
           <div className="space-y-2">
             <div className="bg-slate-900 rounded p-2">
-              <div className="text-xs text-gray-400 mb-1">錢包地址</div>
+              <div className="text-xs text-gray-400 mb-1">Wallet Address</div>
               <div className="text-xs font-mono text-cyan-400">{formatAddress(walletAddress)}</div>
             </div>
             <div className="bg-slate-900 rounded p-2">
-              <div className="text-xs text-gray-400 mb-1">USDT 餘額</div>
+              <div className="text-xs text-gray-400 mb-1">USDC Balance</div>
               <div className="text-lg font-bold text-green-400">${userBalance.toFixed(2)}</div>
             </div>
           </div>
@@ -111,9 +110,8 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
       {/* Content */}
       <div className="flex-1 p-4 space-y-4">
         {matchInProgress ? (
-          /* Match In Progress - Show Betting Status */
           <div className="space-y-3">
-            <div className="text-xs text-gray-400 uppercase font-bold">進行中的下注</div>
+            <div className="text-xs text-gray-400 uppercase font-bold">Active Bet</div>
 
             {selectedAgent && (
               <div className="bg-cyan-900 bg-opacity-30 border border-cyan-500 border-opacity-50 rounded-lg p-3">
@@ -121,36 +119,34 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
                   {agents.find((a) => a.id === selectedAgent)?.name}
                 </div>
                 <div className="text-xs text-gray-300">
-                  下注金額: <span className="text-green-400 font-bold">${selectedAmount.toFixed(2)}</span>
+                  Bet Amount: <span className="text-green-400 font-bold">${selectedAmount.toFixed(2)}</span>
                 </div>
-                <div className="text-xs text-gray-400 mt-2">等待比賽結束...</div>
+                <div className="text-xs text-gray-400 mt-2">Waiting for match result...</div>
               </div>
             )}
           </div>
         ) : matchResult ? (
-          /* Match Result - Show Payout */
           <div className="space-y-3">
-            <div className="text-xs text-gray-400 uppercase font-bold">比賽結果</div>
+            <div className="text-xs text-gray-400 uppercase font-bold">Match Result</div>
 
             {matchResult.userWon ? (
               <div className="bg-green-900 bg-opacity-30 border border-green-500 border-opacity-50 rounded-lg p-3 text-center">
                 <div className="text-2xl mb-2">🎉</div>
-                <div className="text-sm font-bold text-green-300 mb-1">恭喜！你贏了！</div>
+                <div className="text-sm font-bold text-green-300 mb-1">You won!</div>
                 <div className="text-2xl font-black text-green-400">${matchResult.payout.toFixed(2)}</div>
               </div>
             ) : (
               <div className="bg-red-900 bg-opacity-30 border border-red-500 border-opacity-50 rounded-lg p-3 text-center">
                 <div className="text-2xl mb-2">😢</div>
-                <div className="text-sm font-bold text-red-300">這次運氣不好</div>
-                <div className="text-sm text-gray-400 mt-1">等待下一場比賽...</div>
+                <div className="text-sm font-bold text-red-300">Better luck next time</div>
+                <div className="text-sm text-gray-400 mt-1">Waiting for next match...</div>
               </div>
             )}
           </div>
         ) : (
-          /* Ready to Bet */
           <div className="space-y-4">
             <div>
-              <div className="text-xs text-gray-400 uppercase font-bold mb-2">選擇 AI Agent</div>
+              <div className="text-xs text-gray-400 uppercase font-bold mb-2">Select AI Agent</div>
               <div className="space-y-2">
                 {agents.map((agent) => (
                   <button
@@ -172,7 +168,7 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
 
             {selectedAgent && (
               <div>
-                <div className="text-xs text-gray-400 uppercase font-bold mb-2">下注金額</div>
+                <div className="text-xs text-gray-400 uppercase font-bold mb-2">Bet Amount</div>
                 <div className="grid grid-cols-3 gap-2">
                   {BET_AMOUNTS.map((amount) => (
                     <button
@@ -192,7 +188,7 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
 
                 {userBalance < selectedAmount && (
                   <div className="mt-2 bg-red-900 bg-opacity-20 border border-red-500 border-opacity-30 rounded p-2">
-                    <div className="text-xs text-red-300">錢包餘額不足</div>
+                    <div className="text-xs text-red-300">Insufficient balance</div>
                   </div>
                 )}
               </div>
@@ -213,14 +209,14 @@ export const BettingPanel: React.FC<BettingPanelProps> = ({
                 : 'bg-gray-600 text-gray-400 cursor-not-allowed'
             }`}
           >
-            {userBalance >= selectedAmount ? '確認下注' : '錢包餘額不足'}
+            {userBalance >= selectedAmount ? 'Place Bet' : 'Insufficient Balance'}
           </button>
         </div>
       )}
 
       {matchInProgress && (
         <div className="border-t border-slate-700 p-4 sticky bottom-0 bg-slate-800">
-          <div className="text-xs text-center text-gray-400">比賽進行中，請稍候結果...</div>
+          <div className="text-xs text-center text-gray-400">Match in progress, please wait...</div>
         </div>
       )}
     </div>

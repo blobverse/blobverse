@@ -45,13 +45,13 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-300 mb-2 uppercase tracking-widest">
-                  玩家名稱
+                  Player Name
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="輸入你的暱稱..."
+                  placeholder="Enter your name..."
                   maxLength={20}
                   disabled={isLoading || isFull}
                   autoFocus
@@ -70,22 +70,22 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                     : 'bg-gray-700 opacity-50 cursor-not-allowed'
                 }`}
               >
-                {isLoading ? '加入中...' : isFull ? '房間已滿' : '加入遊戲'}
+                {isLoading ? 'Joining...' : isFull ? 'Room Full' : 'Join Game'}
               </button>
             </form>
           ) : (
             /* Countdown View */
             <div className="space-y-4 text-center py-4">
-              <div className="text-gray-300 text-sm">遊戲即將開始...</div>
+              <div className="text-gray-300 text-sm">Game starting soon...</div>
               <div className="text-6xl font-black text-cyan-400">{countdownSeconds}</div>
-              <div className="text-gray-400 text-xs">準備好了嗎？</div>
+              <div className="text-gray-400 text-xs">Get ready!</div>
             </div>
           )}
 
           {/* Player Count */}
           <div className="border-t border-slate-700 pt-4">
             <div className="flex items-center justify-between text-xs text-gray-400">
-              <span>玩家人數</span>
+              <span>Players</span>
               <span className="text-white font-bold">
                 {playerCount} / {maxPlayers}
               </span>
@@ -102,15 +102,15 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           {/* Status Messages */}
           {isFull && (
             <div className="bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-30 rounded-lg p-3 text-xs text-orange-300">
-              房間已滿。請等待下一輪。
+              Room is full. Please wait for the next round.
             </div>
           )}
         </div>
 
         {/* Footer Info */}
         <div className="mt-8 text-center text-xs text-gray-500 space-y-1">
-          <p>90 秒 × 3 輪 × 淘汰賽</p>
-          <p>與 AI Agent 同場競技</p>
+          <p>90s × 3 Rounds × Battle Royale</p>
+          <p>Compete with AI Agents</p>
         </div>
       </div>
     </div>

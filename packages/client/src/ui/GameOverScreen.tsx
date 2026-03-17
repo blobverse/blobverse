@@ -41,11 +41,11 @@ const getMedalEmoji = (rank: number): string => {
 
 const getPersonalityLabel = (personality: string): string => {
   const labels: Record<string, string> = {
-    aggressor: '侵略者',
-    survivor: '倖存者',
-    opportunist: '機會主義者',
-    trickster: '詐欺師',
-    herder: '牧者',
+    aggressor: 'Aggressor',
+    survivor: 'Survivor',
+    opportunist: 'Opportunist',
+    trickster: 'Trickster',
+    herder: 'Herder',
   };
   return labels[personality] || personality;
 };
@@ -62,38 +62,38 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({ data, onPlayAgai
             {/* Big Rank Display */}
             <div className="text-center">
               <div className="text-6xl mb-4">{getMedalEmoji(data.playerRank)}</div>
-              <div className="text-gray-400 text-sm mb-2">最終排名</div>
+              <div className="text-gray-400 text-sm mb-2">Final Rank</div>
               <div className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 mb-2">
-                第 {data.playerRank} 名
+                #{data.playerRank}
               </div>
-              <div className="text-gray-400 text-sm">共 {data.totalPlayers} 位玩家</div>
+              <div className="text-gray-400 text-sm">{data.totalPlayers} players</div>
             </div>
 
             {/* Stats Card */}
             <div className="bg-slate-800 bg-opacity-50 backdrop-blur-sm border border-cyan-500 border-opacity-20 rounded-2xl p-6">
-              <h2 className="text-sm font-bold text-gray-300 uppercase tracking-widest mb-4">遊戲統計</h2>
+              <h2 className="text-sm font-bold text-gray-300 uppercase tracking-widest mb-4">Game Stats</h2>
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-slate-900 bg-opacity-30 rounded-lg p-4 text-center">
                   <div className="text-2xl font-black text-cyan-400">{data.stats.blobsEaten}</div>
-                  <div className="text-xs text-gray-400 mt-1">吃掉的 Blob</div>
+                  <div className="text-xs text-gray-400 mt-1">Blobs Eaten</div>
                 </div>
 
                 <div className="bg-slate-900 bg-opacity-30 rounded-lg p-4 text-center">
                   <div className="text-2xl font-black text-cyan-400">{data.stats.maxMass}</div>
-                  <div className="text-xs text-gray-400 mt-1">最大質量</div>
+                  <div className="text-xs text-gray-400 mt-1">Max Mass</div>
                 </div>
 
                 <div className="bg-slate-900 bg-opacity-30 rounded-lg p-4 text-center">
                   <div className="text-2xl font-black text-cyan-400">{data.stats.survivalTime}s</div>
-                  <div className="text-xs text-gray-400 mt-1">存活時間</div>
+                  <div className="text-xs text-gray-400 mt-1">Survival Time</div>
                 </div>
               </div>
             </div>
 
             {/* Rankings Table */}
             <div className="bg-slate-800 bg-opacity-50 backdrop-blur-sm border border-cyan-500 border-opacity-20 rounded-2xl p-6">
-              <h2 className="text-sm font-bold text-gray-300 uppercase tracking-widest mb-4">最終排行</h2>
+              <h2 className="text-sm font-bold text-gray-300 uppercase tracking-widest mb-4">Final Rankings</h2>
 
               <div className="space-y-2">
                 {data.rankings.map((entry) => (
@@ -126,7 +126,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({ data, onPlayAgai
                 onClick={() => setShowAIReveal(true)}
                 className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold uppercase tracking-widest rounded-lg transition-all shadow-lg hover:shadow-purple-500/50"
               >
-                揭曉 AI 身份 🤖
+                Reveal AI Identities 🤖
               </button>
             )}
 
@@ -135,7 +135,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({ data, onPlayAgai
               onClick={onPlayAgain}
               className="w-full py-3 px-4 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-bold uppercase tracking-widest rounded-lg transition-all shadow-lg hover:shadow-cyan-500/50"
             >
-              再來一局
+              Play Again
             </button>
           </div>
         ) : (
@@ -144,9 +144,9 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({ data, onPlayAgai
             <div className="text-center">
               <div className="text-4xl mb-2">🤖</div>
               <div className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-2">
-                AI 身份揭曉
+                AI Identity Reveal
               </div>
-              <div className="text-gray-400 text-sm">看看你有沒有看出來誰是機器人？</div>
+              <div className="text-gray-400 text-sm">Did you spot who was a bot?</div>
             </div>
 
             {/* AI List */}
@@ -172,7 +172,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({ data, onPlayAgai
               onClick={() => setShowAIReveal(false)}
               className="w-full py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white font-bold uppercase tracking-widest rounded-lg transition-all"
             >
-              返回
+              Back
             </button>
 
             {/* Play Again Button */}
@@ -180,7 +180,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({ data, onPlayAgai
               onClick={onPlayAgain}
               className="w-full py-3 px-4 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-bold uppercase tracking-widest rounded-lg transition-all shadow-lg hover:shadow-cyan-500/50"
             >
-              再來一局
+              Play Again
             </button>
           </div>
         )}

@@ -16,13 +16,13 @@ const formatTime = (seconds: number): string => {
 const getRoundName = (roundNum: number): string => {
   switch (roundNum) {
     case 1:
-      return '搶食狂歡';
+      return 'Feeding Frenzy';
     case 2:
-      return '混亂區域';
+      return 'Chaos Zone';
     case 3:
-      return '最終決戰';
+      return 'Final Showdown';
     default:
-      return '準備中';
+      return 'Preparing';
   }
 };
 
@@ -94,7 +94,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({ gameState, playerId, playerCol
       {/* Top-right: Leaderboard */}
       <div className="absolute top-4 right-4 w-48">
         <div className="bg-slate-900 bg-opacity-85 backdrop-blur-sm border border-white border-opacity-10 rounded-xl p-3">
-          <div className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide">排行榜</div>
+          <div className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide">Leaderboard</div>
 
           <div className="space-y-1">
             {topLeaderboard.map((entry, index) => {
@@ -135,16 +135,16 @@ export const GameHUD: React.FC<GameHUDProps> = ({ gameState, playerId, playerCol
             className="w-4 h-4 rounded-full"
             style={{ backgroundColor: playerColor }}
           />
-          <span className="text-xs text-gray-300">質量:</span>
+          <span className="text-xs text-gray-300">Mass:</span>
           <span className="text-sm font-bold text-yellow-400">{playerMass}</span>
         </div>
       </div>
 
       {/* Bottom-right: Controls hint */}
       <div className="absolute bottom-4 right-4 text-xs text-gray-400 text-right">
-        <div>🖱️ 移動</div>
-        <div>空白鍵 分裂</div>
-        <div>W 射出</div>
+        <div>🖱️ Move</div>
+        <div>Space Split</div>
+        <div>W Eject</div>
       </div>
     </div>
   );

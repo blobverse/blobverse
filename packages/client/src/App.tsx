@@ -210,9 +210,9 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="w-screen h-screen overflow-hidden">
+    <div className="relative w-screen h-screen overflow-hidden">
       {/* Canvas container for PixiJS game */}
-      <div id="canvas-container" />
+      <div id="canvas-container" className="absolute inset-0" />
 
       {/* React UI overlay */}
       <div className="absolute inset-0 pointer-events-none">

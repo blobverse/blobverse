@@ -51,11 +51,11 @@ const formatTime = (seconds: number): string => {
 
 const getPersonalityLabel = (personality: string): string => {
   const labels: Record<string, string> = {
-    aggressor: '侵略者',
-    survivor: '倖存者',
-    opportunist: '機會主義者',
-    trickster: '詐欺師',
-    herder: '牧者',
+    aggressor: 'Aggressor',
+    survivor: 'Survivor',
+    opportunist: 'Opportunist',
+    trickster: 'Trickster',
+    herder: 'Herder',
   };
   return labels[personality] || personality;
 };
@@ -181,7 +181,7 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
         <div className="text-center">
           <div className="text-4xl mb-4">⚔️</div>
           <div className="text-xl font-bold text-white mb-2">Blobverse Arena</div>
-          <div className="text-gray-400">加載比賽中...</div>
+          <div className="text-gray-400">Loading match...</div>
         </div>
       </div>
     );
@@ -192,7 +192,7 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
       <div className="fixed inset-0 bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="text-4xl mb-4">❌</div>
-          <div className="text-xl font-bold text-red-400 mb-2">載入失敗</div>
+          <div className="text-xl font-bold text-red-400 mb-2">Failed to load</div>
           <div className="text-gray-400">{error}</div>
         </div>
       </div>
@@ -222,7 +222,7 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
         <div className="absolute top-4 right-4 w-56 space-y-4">
           {/* Leaderboard */}
           <div className="bg-slate-900 bg-opacity-85 backdrop-blur-sm border border-cyan-500 border-opacity-20 rounded-xl p-3">
-            <div className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide">排行榜</div>
+            <div className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide">Leaderboard</div>
 
             <div className="space-y-1">
               {leaderboard.map((entry, idx) => {
@@ -247,13 +247,13 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
 
           {/* Kill Feed */}
           <div className="bg-slate-900 bg-opacity-85 backdrop-blur-sm border border-cyan-500 border-opacity-20 rounded-xl p-3">
-            <div className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide">事件</div>
+            <div className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide">Events</div>
 
             <div className="space-y-1 max-h-40 overflow-y-auto">
               {killFeed.slice(-4).map((entry, idx) => (
                 <div key={idx} className="text-xs text-gray-300">
                   <span className="text-yellow-300">{entry.killer}</span>
-                  <span className="text-gray-500"> 吃掉了 </span>
+                  <span className="text-gray-500"> ate</span>
                   <span className="text-yellow-300">{entry.killed}</span>
                 </div>
               ))}
@@ -290,7 +290,7 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
 
                   {/* Stats */}
                   <div className="bg-slate-800 rounded px-2 py-1">
-                    <div className="text-xs text-gray-400">勝率</div>
+                    <div className="text-xs text-gray-400">Win Rate</div>
                     <div className="text-sm font-bold text-green-400">{(agent.winRate * 100).toFixed(0)}%</div>
                   </div>
 
@@ -300,7 +300,7 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
                       className={`w-2 h-2 rounded-full ${isAlive ? 'bg-green-500' : 'bg-red-500'}`}
                     />
                     <span className="text-xs text-gray-400">
-                      {isAlive ? '對戰中' : finalRank > 0 ? `第 ${finalRank} 名` : '已淘汰'}
+                      {isAlive ? 'Fighting' : finalRank > 0 ? `#${finalRank}` : 'Eliminated'}
                     </span>
                   </div>
                 </div>
@@ -317,7 +317,7 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
             onClick={() => setIsPlaying(!isPlaying)}
             className="px-3 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-colors"
           >
-            {isPlaying ? '⏸ 暫停' : '▶ 播放'}
+            {isPlaying ? '⏸ Pause' : '▶ Play'}
           </button>
 
           <div className="flex-1">
