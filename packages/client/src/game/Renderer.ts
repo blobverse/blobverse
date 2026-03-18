@@ -16,6 +16,13 @@ const THEME = {
 const GRID_SPACING = 50;
 const PARALLAX_FACTOR = 0.3; // Grid moves slower than camera
 
+interface ZoneBounds {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
 export class Renderer {
   app: Application;
   camera: Camera;
@@ -30,6 +37,8 @@ export class Renderer {
   private debugText: Text | null = null;
   private showDebug: boolean = true;
   private debugData: Record<string, string | number> = {};
+  private shrinkingZone: ZoneBounds = { left: 0, top: 0, right: WORLD_WIDTH, bottom: WORLD_HEIGHT };
+  private shrinkingZoneProgress: number = 0;
 
   // Bound listener for cleanup
   private boundHandleResize: () => void = () => {};
@@ -103,6 +112,11 @@ export class Renderer {
     this.debugData[key] = value;
   }
 
+  setShrinkingZone(zone: ZoneBounds, progress: number): void {
+    this.shrinkingZone = zone;
+    this.shrinkingZoneProgress = progress;
+  }
+
   /**
    * Render a single frame
    */
@@ -164,6 +178,27 @@ export class Renderer {
     // Draw world boundary
     g.rect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     g.stroke({ width: 2 / this.camera.zoom, color: 0xff4444, alpha: 0.5 });
+
+    // Draw shrinking battle zone
+    const zone = this.shrinkingZone;
+    const zoneWidth = zone.right - zone.left;
+    const zoneHeight = zone.bottom - zone.top;
+    if (zoneWidth > 0 && zoneHeight > 0) {
+      const dangerAlpha = 0.2 + this.shrinkingZoneProgress * 0.25;
+      g.rect(zone.left, zone.top, zoneWidth, zoneHeight);
+      g.stroke({
+        width: (3 + this.shrinkingZoneProgress * 2) / this.camera.zoom,
+        color: 0xffaa33,
+        alpha: 0.75,
+      });
+
+      // Visual danger tint outside active zone.
+      g.rect(0, 0, WORLD_WIDTH, zone.top);
+      g.rect(0, zone.bottom, WORLD_WIDTH, WORLD_HEIGHT - zone.bottom);
+      g.rect(0, zone.top, zone.left, zoneHeight);
+      g.rect(zone.right, zone.top, WORLD_WIDTH - zone.right, zoneHeight);
+      g.fill({ color: 0xb00000, alpha: dangerAlpha });
+    }
   }
 
   /**

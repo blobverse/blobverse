@@ -52,6 +52,8 @@ const AI_WANDER_SPEED = 0.8;
 const AI_TARGET_CHANGE_INTERVAL = 2000;
 const ROUND_DURATION_SECONDS = 30;
 const TOTAL_ROUNDS = 3;
+const SHRINK_START_DELAY_SECONDS = 10;
+const FINAL_ZONE_SCALE = 0.38;
 
 // Convert ticks to ms
 const SPLIT_COOLDOWN_MS = (SPLIT_COOLDOWN_TICKS / SERVER_TPS) * 1000; // 1 second
@@ -85,6 +87,13 @@ interface PelletEntity extends SpatialEntity {
   isEjected?: boolean;
 }
 
+interface ZoneBounds {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
 export interface LocalGameOverPayload {
   playerRank: number;
   totalPlayers: number;
@@ -105,6 +114,7 @@ export class Game {
   private startTimeMs: number = 0;
   private blobsEatenByPlayer: number = 0;
   private maxPlayerMass: number = 0;
+  private currentZone: ZoneBounds = { left: 0, top: 0, right: WORLD_WIDTH, bottom: WORLD_HEIGHT };
 
   // Blobs (including player and fragments)
   private blobs: Map<string, BlobEntity> = new Map();
@@ -288,8 +298,9 @@ export class Game {
   private spawnAIBlob(): void {
     const id = this.generateBlobId();
     const mass = INITIAL_MASS + Math.random() * 30;
-    const x = Math.random() * (WORLD_WIDTH - 100) + 50;
-    const y = Math.random() * (WORLD_HEIGHT - 100) + 50;
+    const spawnBounds = this.getInsetZone(this.currentZone, 50);
+    const x = this.randomInRange(spawnBounds.left, spawnBounds.right);
+    const y = this.randomInRange(spawnBounds.top, spawnBounds.bottom);
     const colorIndex = Math.floor(Math.random() * BLOB_PALETTE.length);
     const names = ['Chompy', 'Blobby', 'Gloopy', 'Muncher', 'Slurp', 'Wobble', 'Nom', 'Gulp'];
     const name = names[Math.floor(Math.random() * names.length)];
@@ -376,8 +387,9 @@ export class Game {
     if (this.pellets.size >= MAX_PELLETS) return;
 
     const id = this.generatePelletId();
-    const x = Math.random() * (WORLD_WIDTH - 40) + 20;
-    const y = Math.random() * (WORLD_HEIGHT - 40) + 20;
+    const spawnBounds = this.getInsetZone(this.currentZone, 20);
+    const x = this.randomInRange(spawnBounds.left, spawnBounds.right);
+    const y = this.randomInRange(spawnBounds.top, spawnBounds.bottom);
     const isGolden = Math.random() < GOLDEN_PELLET_CHANCE;
     const baseMass = PELLET_MASS_MIN + Math.random() * (PELLET_MASS_MAX - PELLET_MASS_MIN);
     const mass = isGolden ? baseMass * GOLDEN_MASS_MULTIPLIER : baseMass;
@@ -485,6 +497,7 @@ export class Game {
     this.gameEnded = false;
     this.lastTime = performance.now();
     this.startTimeMs = this.lastTime;
+    this.currentZone = { left: 0, top: 0, right: WORLD_WIDTH, bottom: WORLD_HEIGHT };
     this.blobsEatenByPlayer = 0;
     this.maxPlayerMass = this.getPlayerTotalMass();
     requestAnimationFrame((t) => this.gameLoop(t));
@@ -509,6 +522,11 @@ export class Game {
   }
 
   private update(dtSeconds: number, dtMs: number): void {
+    const elapsedSec = (performance.now() - this.startTimeMs) / 1000;
+    const zoneProgress = this.getZoneProgress(elapsedSec);
+    this.currentZone = this.getZoneBounds(zoneProgress);
+    this.renderer.setShrinkingZone(this.currentZone, zoneProgress);
+
     // Update player blobs
     const target = this.input.getTargetPosition();
     for (const id of this.playerBlobIds) {
@@ -565,6 +583,7 @@ export class Game {
     this.renderer.setDebugData('Mass', this.getPlayerTotalMass());
     this.renderer.setDebugData('Blobs', this.blobs.size);
     this.renderer.setDebugData('Fragments', this.playerBlobIds.size);
+    this.renderer.setDebugData('Zone', `${Math.round((1 - zoneProgress) * 100)}%`);
 
     this.maxPlayerMass = Math.max(this.maxPlayerMass, this.getPlayerTotalMass());
     this.emitState();
@@ -648,8 +667,8 @@ export class Game {
         pellet.velocityY *= 0.95;
 
         // Clamp to world
-        pellet.x = clamp(pellet.x, 10, WORLD_WIDTH - 10);
-        pellet.y = clamp(pellet.y, 10, WORLD_HEIGHT - 10);
+        pellet.x = clamp(pellet.x, this.currentZone.left + 10, this.currentZone.right - 10);
+        pellet.y = clamp(pellet.y, this.currentZone.top + 10, this.currentZone.bottom - 10);
 
         // Stop if slow enough
         const speed = Math.sqrt(pellet.velocityX ** 2 + pellet.velocityY ** 2);
@@ -665,8 +684,9 @@ export class Game {
   private updateAIBehavior(blob: BlobEntity, dtMs: number): void {
     blob.targetChangeTime = (blob.targetChangeTime || 0) - dtMs;
     if (blob.targetChangeTime <= 0) {
-      blob.targetX = Math.random() * WORLD_WIDTH;
-      blob.targetY = Math.random() * WORLD_HEIGHT;
+      const targetBounds = this.getInsetZone(this.currentZone, blob.radius + 10);
+      blob.targetX = this.randomInRange(targetBounds.left, targetBounds.right);
+      blob.targetY = this.randomInRange(targetBounds.top, targetBounds.bottom);
       blob.targetChangeTime = AI_TARGET_CHANGE_INTERVAL + Math.random() * 1000;
     }
   }
@@ -695,8 +715,44 @@ export class Game {
 
     blob.x += blob.velocityX * dt;
     blob.y += blob.velocityY * dt;
-    blob.x = clamp(blob.x, blob.radius, WORLD_WIDTH - blob.radius);
-    blob.y = clamp(blob.y, blob.radius, WORLD_HEIGHT - blob.radius);
+    blob.x = clamp(blob.x, this.currentZone.left + blob.radius, this.currentZone.right - blob.radius);
+    blob.y = clamp(blob.y, this.currentZone.top + blob.radius, this.currentZone.bottom - blob.radius);
+  }
+
+  private getZoneProgress(elapsedSec: number): number {
+    const matchDuration = ROUND_DURATION_SECONDS * TOTAL_ROUNDS;
+    const shrinkDuration = Math.max(1, matchDuration - SHRINK_START_DELAY_SECONDS);
+    return clamp((elapsedSec - SHRINK_START_DELAY_SECONDS) / shrinkDuration, 0, 1);
+  }
+
+  private getZoneBounds(progress: number): ZoneBounds {
+    const scale = lerp(1, FINAL_ZONE_SCALE, progress);
+    const width = WORLD_WIDTH * scale;
+    const height = WORLD_HEIGHT * scale;
+    const centerX = WORLD_WIDTH / 2;
+    const centerY = WORLD_HEIGHT / 2;
+    return {
+      left: centerX - width / 2,
+      top: centerY - height / 2,
+      right: centerX + width / 2,
+      bottom: centerY + height / 2,
+    };
+  }
+
+  private getInsetZone(zone: ZoneBounds, padding: number): ZoneBounds {
+    const maxPadding = Math.max(0, Math.min((zone.right - zone.left) / 2 - 2, (zone.bottom - zone.top) / 2 - 2));
+    const p = Math.min(padding, maxPadding);
+    return {
+      left: zone.left + p,
+      top: zone.top + p,
+      right: zone.right - p,
+      bottom: zone.bottom - p,
+    };
+  }
+
+  private randomInRange(min: number, max: number): number {
+    if (max <= min) return min;
+    return min + Math.random() * (max - min);
   }
 
   private rebuildSpatialHashes(): void {
