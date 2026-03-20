@@ -2,7 +2,7 @@
 
 **AI-Powered Battle Royale with WDK Wallet Integration**
 
-Live Demo: https://blobverse-production.up.railway.app/
+Live Demo: https://blobverse.up.railway.app
 
 ---
 
