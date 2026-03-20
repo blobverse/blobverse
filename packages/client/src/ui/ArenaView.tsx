@@ -142,7 +142,7 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
       const now = Date.now();
       const timeDelta = now - lastUpdateTimeRef.current;
 
-      if (timeDelta >= 50) { // ~20 FPS playback
+      if (timeDelta >= 150) { // Replay at ~1.7x speed (original frame interval: 250ms)
         setCurrentFrameIndex((prev) => {
           const next = prev + 1;
           if (next >= replayFrames.length) {
