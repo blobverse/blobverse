@@ -126,14 +126,32 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
   // Arena API
   if (url === '/api/arena/current') {
     const match = arenaManager.getCurrentMatch();
-    res.writeHead(match ? 200 : 204, { 'Content-Type': 'application/json' });
-    res.end(match ? JSON.stringify(match) : '{}');
+    if (!match) {
+      res.writeHead(204, { 'Content-Type': 'application/json' });
+      res.end('{}');
+      return;
+    }
+    // Strip pellets from replay frames to reduce payload (~10MB → ~500KB)
+    // ArenaView only uses blob positions, leaderboard, and round info
+    const lite = {
+      ...match,
+      replayFrames: match.replayFrames.map(f => ({
+        ...f,
+        pellets: [],
+      })),
+    };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(lite));
     return;
   }
 
   if (url === '/api/arena/history') {
+    const history = arenaManager.getMatchHistory().map(m => ({
+      ...m,
+      replayFrames: [], // strip replay data from history listing
+    }));
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ matches: arenaManager.getMatchHistory() }));
+    res.end(JSON.stringify({ matches: history }));
     return;
   }
 
@@ -193,8 +211,12 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
   if (matchRoute) {
     const match = arenaManager.getMatchById(matchRoute[1]);
     if (match) {
+      const lite = {
+        ...match,
+        replayFrames: match.replayFrames.map(f => ({ ...f, pellets: [] })),
+      };
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(match));
+      res.end(JSON.stringify(lite));
     } else {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Match not found' }));
