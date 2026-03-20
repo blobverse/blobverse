@@ -175,35 +175,50 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
     return;
   }
 
-  // Join arena — pay entry fee, get assigned agent
-  if (url === '/api/arena/join' && req.method === 'POST') {
-    const match = arenaManager.getCurrentMatch();
-    if (!match) {
-      res.writeHead(503, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'No match available, please wait' }));
+  // Get agents with odds for betting UI
+  if (url === '/api/arena/agents') {
+    const agents = arenaManager.getAgentsForBetting();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ agents, dryRun: wdkManager.isDryRun }));
+    return;
+  }
+
+  // Place a bet on an agent
+  if (url === '/api/arena/bet' && req.method === 'POST') {
+    const body = await readJsonBody(req);
+    const agentName = body.agentName as string;
+    const amount = body.amount as number;
+    if (!agentName || typeof amount !== 'number' || amount <= 0) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'agentName and positive amount required' }));
       return;
     }
-    const body = await readJsonBody(req);
-    const preferredPersonality = typeof body.preferredPersonality === 'string'
-      ? body.preferredPersonality.toLowerCase()
-      : 'random';
-
-    // Pick an agent by preferred personality first, fallback to random.
-    const agents = match.agents || [];
-    const personalityMatches = preferredPersonality === 'random'
-      ? agents
-      : agents.filter((a) => a.personality === preferredPersonality);
-    const source = personalityMatches.length > 0 ? personalityMatches : agents;
-    const assignedAgent = source[Math.floor(Math.random() * source.length)];
+    const bet = arenaManager.placeBet(agentName, amount);
+    if (!bet) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'No match available for betting' }));
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      success: true,
-      dryRun: wdkManager.isDryRun,
-      assignedAgent: assignedAgent || null,
-      matchId: match.matchId,
-      entryFeePaid: ENTRY_FEE_USD,
-      preferredPersonality,
-    }));
+    res.end(JSON.stringify({ success: true, bet, dryRun: wdkManager.isDryRun }));
+    return;
+  }
+
+  // Settle a bet — check if user won
+  if (url?.startsWith('/api/arena/bet/') && req.method === 'GET') {
+    const betId = url.split('/api/arena/bet/')[1];
+    const bet = arenaManager.getBet(betId);
+    if (!bet) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Bet not found' }));
+      return;
+    }
+    // Auto-settle if not yet settled
+    if (!bet.settled) {
+      arenaManager.settleBet(betId);
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ bet }));
     return;
   }
 

@@ -1,127 +1,125 @@
 /**
- * Arena Page — Pay-to-play flow with WDK wallet
- * 1. Show QR code (escrow address) + entry fee
- * 2. User pays → agent assigned
- * 3. Watch match with "your agent" highlighted
- * 4. Settlement result
+ * Arena Page — Horse-racing style betting on AI agent battles
+ * 1. See 5 agents with stats, personality, odds
+ * 2. Pick an agent and bet amount
+ * 3. Watch the match replay
+ * 4. Settlement — win payout if your agent wins
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
 import { ArenaView } from './ui/ArenaView';
-import type { AIAgentInfo, MatchResult } from './ui/ArenaView';
+import type { AIAgentInfo } from './ui/ArenaView';
 import { getApiBaseUrl } from './env';
 
-type ArenaPhase = 'entry' | 'joining' | 'watching' | 'result';
+type ArenaPhase = 'betting' | 'confirming' | 'watching' | 'result';
 
-interface EscrowInfo {
-  escrowAddress: string;
-  entryFeeUsd: number;
-  network: string;
-  token: string;
-  dryRun: boolean;
-}
-
-interface JoinResult {
-  success: boolean;
-  dryRun: boolean;
-  assignedAgent: AIAgentInfo | null;
-  matchId: string;
-  entryFeePaid: number;
+interface BetInfo {
+  betId: string;
+  agentId: string;
+  agentName: string;
+  amount: number;
+  odds: number;
+  settled?: boolean;
+  won?: boolean;
+  payout?: number;
 }
 
 interface ArenaPageProps {
   apiBaseUrl?: string;
 }
 
-const PERSONALITY_OPTIONS = [
-  { value: 'random', label: 'Random' },
-  { value: 'aggressor', label: 'Aggressor' },
-  { value: 'survivor', label: 'Survivor' },
-  { value: 'opportunist', label: 'Opportunist' },
-] as const;
+const BET_AMOUNTS = [
+  { label: '$0.25', value: 0.25 },
+  { label: '$0.50', value: 0.50 },
+  { label: '$1.00', value: 1.00 },
+];
+
+const PERSONALITY_EMOJI: Record<string, string> = {
+  aggressor: '⚔️',
+  survivor: '🛡️',
+  opportunist: '🎯',
+  trickster: '🎭',
+  herder: '🐑',
+};
 
 export const ArenaPage: React.FC<ArenaPageProps> = ({
   apiBaseUrl = getApiBaseUrl(),
 }) => {
-  const [phase, setPhase] = useState<ArenaPhase>('entry');
-  const [escrowInfo, setEscrowInfo] = useState<EscrowInfo | null>(null);
-  const [assignedAgent, setAssignedAgent] = useState<AIAgentInfo | null>(null);
-  const [matchId, setMatchId] = useState<string | null>(null);
-  const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
+  const [phase, setPhase] = useState<ArenaPhase>('betting');
+  const [agents, setAgents] = useState<AIAgentInfo[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null); // agent name
+  const [betAmount, setBetAmount] = useState(0.25);
+  const [bet, setBet] = useState<BetInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [preferredPersonality, setPreferredPersonality] = useState<string>('random');
+  const [dryRun, setDryRun] = useState(true);
 
-  // Fetch escrow info on mount
+  // Fetch agents with odds on mount
   useEffect(() => {
-    fetch(`${apiBaseUrl}/api/arena/escrow-info`)
+    fetch(`${apiBaseUrl}/api/arena/agents`)
       .then((r) => r.json())
-      .then(setEscrowInfo)
-      .catch(() => setError('Failed to fetch escrow info'));
+      .then((data) => {
+        setAgents(data.agents || []);
+        setDryRun(data.dryRun ?? true);
+      })
+      .catch(() => setError('Failed to load agents'));
   }, [apiBaseUrl]);
 
-  // Join match — pay entry fee + get assigned agent
-  const handleJoin = useCallback(async () => {
-    setPhase('joining');
+  // Place bet
+  const handlePlaceBet = useCallback(async () => {
+    if (!selectedAgent) return;
+    setPhase('confirming');
     setError(null);
     try {
-      const joinBody = preferredPersonality === 'random'
-        ? {}
-        : { preferredPersonality };
-      const res = await fetch(`${apiBaseUrl}/api/arena/join`, {
+      const res = await fetch(`${apiBaseUrl}/api/arena/bet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(joinBody),
+        body: JSON.stringify({ agentName: selectedAgent, amount: betAmount }),
       });
-      const data: JoinResult = await res.json();
+      const data = await res.json();
       if (!data.success) {
-        setError('No match available — please wait for the next one');
-        setPhase('entry');
+        setError(data.error || 'Failed to place bet');
+        setPhase('betting');
         return;
       }
-      setAssignedAgent(data.assignedAgent);
-      setMatchId(data.matchId);
-
-      // In dry-run mode, simulate brief payment confirmation
-      if (data.dryRun) {
-        await new Promise((r) => setTimeout(r, 3000));
-      }
-
+      setBet(data.bet);
+      // Brief confirmation delay
+      await new Promise((r) => setTimeout(r, 1500));
       setPhase('watching');
     } catch {
-      setError('Failed to join match');
-      setPhase('entry');
+      setError('Failed to place bet');
+      setPhase('betting');
     }
-  }, [apiBaseUrl, preferredPersonality]);
+  }, [apiBaseUrl, selectedAgent, betAmount]);
 
-  const handleMatchEnd = useCallback(() => {
-    // Fetch final match result for settlement display
-    if (matchId) {
-      fetch(`${apiBaseUrl}/api/arena/match/${matchId}`)
-        .then((r) => r.json())
-        .then((data: MatchResult) => {
-          setMatchResult(data);
-          setPhase('result');
-        })
-        .catch(() => setPhase('result'));
-    } else {
+  // On match replay end → settle bet
+  const handleMatchEnd = useCallback(async () => {
+    if (!bet?.betId) {
       setPhase('result');
+      return;
     }
-  }, [apiBaseUrl, matchId]);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/arena/bet/${bet.betId}`);
+      const data = await res.json();
+      if (data.bet) {
+        setBet(data.bet);
+      }
+    } catch {
+      // ignore, show result anyway
+    }
+    setPhase('result');
+  }, [apiBaseUrl, bet]);
 
-  const handlePlayAgain = () => {
-    setPhase('entry');
-    setAssignedAgent(null);
-    setMatchId(null);
-    setMatchResult(null);
+  const handleBetAgain = () => {
+    setPhase('betting');
+    setSelectedAgent(null);
+    setBet(null);
     setError(null);
   };
 
-  // Determine if user's agent won
-  const userAgentRank = matchResult?.rankings?.find(
-    (r) => r.agentId === assignedAgent?.id
-  )?.rank;
-  const userWon = userAgentRank === 1;
+  const selectedAgentData = agents.find((a) => a.name === selectedAgent);
+  const potentialPayout = selectedAgentData
+    ? betAmount * (selectedAgentData as any).odds
+    : 0;
 
   return (
     <div className="flex h-screen bg-slate-900">
@@ -130,222 +128,197 @@ export const ArenaPage: React.FC<ArenaPageProps> = ({
         <ArenaView
           apiBaseUrl={apiBaseUrl}
           onMatchEnd={handleMatchEnd}
-          highlightAgentId={assignedAgent?.id}
+          highlightAgentId={bet?.agentId}
         />
       </div>
 
-      {/* Right: Entry / Status panel */}
+      {/* Right: Betting panel */}
       <div className="bg-slate-800 border-l border-slate-700 w-96 h-full flex flex-col overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700 p-4">
-          <h2 className="text-lg font-bold text-white">WDK Arena</h2>
-          <p className="text-xs text-gray-400 mt-1">
-            Pay entry fee → AI agent plays for you → Win prizes
+        <div className="bg-gradient-to-r from-amber-900/50 to-slate-800 border-b border-slate-700 p-4">
+          <h2 className="text-lg font-bold text-white">Blobverse Arena</h2>
+          <p className="text-xs text-amber-300 mt-1">
+            Pick your champion — bet on the winner
           </p>
+          {dryRun && (
+            <div className="mt-2 bg-yellow-900/30 border border-yellow-600/40 rounded px-2 py-1">
+              <div className="text-[10px] text-yellow-300 text-center">Demo Mode — bets simulated</div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 p-4 space-y-4">
-          {/* ── Phase: Entry ── */}
-          {phase === 'entry' && (
+          {/* ── Phase: Betting ── */}
+          {phase === 'betting' && (
             <>
-              {/* QR Code */}
-              {escrowInfo && (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="text-xs text-gray-400 uppercase font-bold tracking-wide">
-                    Scan to Pay Entry Fee
-                  </div>
-                  <div className="bg-white p-3 rounded-xl">
-                    <QRCodeSVG
-                      value={`polygon:${escrowInfo.escrowAddress}?amount=${escrowInfo.entryFeeUsd}&token=USDC`}
-                      size={180}
-                      level="M"
-                    />
-                  </div>
-                  <div className="text-center space-y-1">
-                    <div className="text-2xl font-black text-green-400">
-                      ${escrowInfo.entryFeeUsd.toFixed(2)} USDC
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {escrowInfo.network} Network
-                    </div>
-                  </div>
+              <div className="text-xs text-gray-400 uppercase font-bold tracking-wide">
+                Choose Your Champion
+              </div>
 
-                  {/* Escrow address */}
-                  <div className="w-full bg-slate-900 rounded-lg p-3">
-                    <div className="text-xs text-gray-400 mb-1">Escrow Address</div>
-                    <div className="text-xs font-mono text-cyan-400 break-all">
-                      {escrowInfo.escrowAddress}
-                    </div>
-                  </div>
-
-                  {escrowInfo.dryRun && (
-                    <div className="w-full bg-yellow-900 bg-opacity-30 border border-yellow-600 border-opacity-40 rounded-lg p-2">
-                      <div className="text-xs text-yellow-300 text-center">
-                        Demo Mode — payment simulated instantly
+              {/* Agent cards */}
+              <div className="space-y-2">
+                {agents.map((agent) => {
+                  const odds = (agent as any).odds || 2.0;
+                  const emoji = PERSONALITY_EMOJI[agent.personality] || '🤖';
+                  const isSelected = selectedAgent === agent.name;
+                  return (
+                    <button
+                      key={agent.id}
+                      onClick={() => setSelectedAgent(agent.name)}
+                      className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
+                        isSelected
+                          ? 'bg-amber-900/30 border-amber-500 shadow-lg shadow-amber-500/20'
+                          : 'bg-slate-900 border-slate-700 hover:border-slate-500'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
+                          style={{ backgroundColor: agent.color }}
+                        >
+                          {agent.name[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-white">{agent.name}</span>
+                            <span className="text-xs">{emoji}</span>
+                          </div>
+                          <div className="text-xs text-gray-400 capitalize">{agent.personality}</div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-lg font-black text-amber-400">{odds}x</div>
+                          <div className="text-[10px] text-gray-500">odds</div>
+                        </div>
                       </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Bet amount selector */}
+              {selectedAgent && (
+                <div className="space-y-2">
+                  <div className="text-xs text-gray-400 uppercase font-bold">Bet Amount</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {BET_AMOUNTS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setBetAmount(opt.value)}
+                        className={`py-2 rounded-lg text-sm font-bold transition-all ${
+                          betAmount === opt.value
+                            ? 'bg-green-600 text-white'
+                            : 'bg-slate-900 text-gray-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Potential payout */}
+                  <div className="bg-slate-900 rounded-lg p-3 flex items-center justify-between">
+                    <div className="text-xs text-gray-400">Potential Payout</div>
+                    <div className="text-xl font-black text-green-400">
+                      ${potentialPayout.toFixed(2)}
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
-              {/* Prize info */}
-              <div className="bg-slate-900 rounded-lg p-3 space-y-2">
-                <div className="text-xs text-gray-400 uppercase font-bold">Prize Pool</div>
-                <div className="text-sm text-gray-300">
-                  5 agents x $0.25 = <span className="text-green-400 font-bold">$1.25 USDC</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1 text-xs text-gray-400">
-                  <div>1st: 50% ($0.63)</div>
-                  <div>2nd: 25% ($0.31)</div>
-                  <div>3rd: 15% ($0.19)</div>
-                  <div>Platform: 10%</div>
-                </div>
-              </div>
-
-              <div className="bg-slate-900 rounded-lg p-3 space-y-2">
-                <div className="text-xs text-gray-400 uppercase font-bold">Agent Personality</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {PERSONALITY_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => setPreferredPersonality(option.value)}
-                      className={`text-xs py-2 rounded border transition-all ${
-                        preferredPersonality === option.value
-                          ? 'bg-cyan-600 bg-opacity-25 border-cyan-500 text-cyan-200'
-                          : 'bg-slate-800 border-slate-700 text-gray-300 hover:border-slate-500'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="text-[11px] text-gray-500">
-                  Pick a style or use random assignment.
-                </div>
-              </div>
-
               {/* How it works */}
-              <div className="bg-slate-900 rounded-lg p-3 space-y-2">
+              <div className="bg-slate-900 rounded-lg p-3 space-y-1">
                 <div className="text-xs text-gray-400 uppercase font-bold">How It Works</div>
-                <div className="space-y-1 text-xs text-gray-300">
-                  <div>1. Pay $0.25 USDC entry fee</div>
-                  <div>2. An AI agent is assigned to fight for you</div>
-                  <div>3. Watch the 3-round battle royale</div>
-                  <div>4. If your agent wins, prizes auto-settle to your wallet</div>
-                </div>
+                <div className="text-xs text-gray-300">1. Pick an AI agent to bet on</div>
+                <div className="text-xs text-gray-300">2. Choose your bet amount</div>
+                <div className="text-xs text-gray-300">3. Watch the 3-round battle royale</div>
+                <div className="text-xs text-gray-300">4. Win payout if your agent wins!</div>
               </div>
 
               {error && (
-                <div className="bg-red-900 bg-opacity-30 border border-red-500 border-opacity-40 rounded-lg p-2">
+                <div className="bg-red-900/30 border border-red-500/40 rounded-lg p-2">
                   <div className="text-xs text-red-300 text-center">{error}</div>
                 </div>
               )}
             </>
           )}
 
-          {/* ── Phase: Joining ── */}
-          {phase === 'joining' && (
+          {/* ── Phase: Confirming ── */}
+          {phase === 'confirming' && (
             <div className="flex flex-col items-center justify-center gap-4 py-12">
-              <div className="animate-spin w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full" />
-              <div className="text-sm text-gray-300">Processing payment...</div>
-              <div className="text-xs text-gray-500">Assigning your AI agent</div>
+              <div className="animate-spin w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full" />
+              <div className="text-sm text-gray-300">Placing your bet...</div>
+              <div className="text-xs text-gray-500">
+                ${betAmount.toFixed(2)} on {selectedAgent}
+              </div>
             </div>
           )}
 
           {/* ── Phase: Watching ── */}
-          {phase === 'watching' && assignedAgent && (
+          {phase === 'watching' && bet && (
             <div className="space-y-4">
-              <div className="text-xs text-gray-400 uppercase font-bold">Your Agent</div>
-              <div className="bg-cyan-900 bg-opacity-30 border border-cyan-500 border-opacity-50 rounded-xl p-4">
-                <div className="flex items-center gap-3">
+              <div className="text-xs text-gray-400 uppercase font-bold">Your Bet</div>
+
+              <div className="bg-amber-900/30 border border-amber-500/50 rounded-xl p-4">
+                <div className="flex items-center gap-3 mb-3">
                   <div
                     className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
-                    style={{ backgroundColor: assignedAgent.color }}
+                    style={{ backgroundColor: selectedAgentData?.color || '#666' }}
                   >
-                    {assignedAgent.name[0]}
+                    {bet.agentName[0]}
                   </div>
                   <div>
-                    <div className="text-lg font-bold text-white">{assignedAgent.name}</div>
-                    <div className="text-xs text-cyan-300 capitalize">{assignedAgent.personality}</div>
+                    <div className="text-lg font-bold text-white">{bet.agentName}</div>
+                    <div className="text-xs text-amber-300">
+                      {bet.odds}x odds
+                    </div>
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-gray-400">
-                  Entry fee paid: <span className="text-green-400 font-bold">$0.25 USDC</span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-slate-900 rounded p-2">
+                    <div className="text-gray-400">Bet</div>
+                    <div className="text-green-400 font-bold">${bet.amount.toFixed(2)}</div>
+                  </div>
+                  <div className="bg-slate-900 rounded p-2">
+                    <div className="text-gray-400">Potential Win</div>
+                    <div className="text-amber-400 font-bold">${(bet.amount * bet.odds).toFixed(2)}</div>
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-slate-900 rounded-lg p-3">
-                <div className="text-xs text-gray-400 mb-1">Match ID</div>
-                <div className="text-xs font-mono text-gray-300">{matchId}</div>
-              </div>
-              <div className="bg-slate-900 rounded-lg p-3">
-                <div className="text-xs text-gray-400 mb-1">Selected Personality</div>
-                <div className="text-xs font-mono text-cyan-300 capitalize">
-                  {preferredPersonality}
-                </div>
-              </div>
-
-              <div className="text-center text-sm text-yellow-300 animate-pulse">
-                Match in progress — watch the replay on the left
+              <div className="text-center text-sm text-amber-300 animate-pulse">
+                Match in progress...
               </div>
             </div>
           )}
 
           {/* ── Phase: Result ── */}
-          {phase === 'result' && (
+          {phase === 'result' && bet && (
             <div className="space-y-4">
-              <div className="text-xs text-gray-400 uppercase font-bold">Match Result</div>
+              <div className="text-xs text-gray-400 uppercase font-bold">Result</div>
 
-              {userWon ? (
-                <div className="bg-green-900 bg-opacity-30 border border-green-500 border-opacity-50 rounded-xl p-4 text-center">
-                  <div className="text-4xl mb-2">🏆</div>
-                  <div className="text-lg font-bold text-green-300 mb-1">Your Agent Won!</div>
-                  <div className="text-sm text-gray-300">
-                    <span className="text-white font-bold">{assignedAgent?.name}</span> finished{' '}
-                    <span className="text-green-400 font-bold">#{userAgentRank}</span>
+              {bet.won ? (
+                <div className="bg-green-900/30 border border-green-500/50 rounded-xl p-5 text-center">
+                  <div className="text-5xl mb-3">🏆</div>
+                  <div className="text-xl font-bold text-green-300 mb-1">You Won!</div>
+                  <div className="text-sm text-gray-300 mb-3">
+                    {bet.agentName} took the crown
                   </div>
-                  <div className="text-2xl font-black text-green-400 mt-2">$0.63 USDC</div>
-                  <div className="text-xs text-gray-500 mt-1">Prize sent to your wallet</div>
+                  <div className="text-3xl font-black text-green-400">
+                    +${(bet.payout || 0).toFixed(2)} USDC
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Bet: ${bet.amount.toFixed(2)} @ {bet.odds}x
+                  </div>
                 </div>
               ) : (
-                <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 text-center">
-                  <div className="text-4xl mb-2">{userAgentRank && userAgentRank <= 3 ? '🥈' : '😤'}</div>
-                  <div className="text-lg font-bold text-gray-300 mb-1">
-                    {userAgentRank && userAgentRank <= 3 ? 'Almost!' : 'Better luck next time'}
+                <div className="bg-slate-900 border border-slate-600 rounded-xl p-5 text-center">
+                  <div className="text-5xl mb-3">😤</div>
+                  <div className="text-xl font-bold text-gray-300 mb-1">Not This Time</div>
+                  <div className="text-sm text-gray-400 mb-3">
+                    {bet.agentName} didn't make it
                   </div>
-                  <div className="text-sm text-gray-400">
-                    <span className="text-white font-bold">{assignedAgent?.name}</span> finished{' '}
-                    <span className="text-yellow-400 font-bold">#{userAgentRank || '?'}</span>
-                  </div>
-                  {userAgentRank === 2 && (
-                    <div className="text-lg font-bold text-green-400 mt-2">$0.31 USDC</div>
-                  )}
-                  {userAgentRank === 3 && (
-                    <div className="text-lg font-bold text-green-400 mt-2">$0.19 USDC</div>
-                  )}
-                </div>
-              )}
-
-              {/* Rankings */}
-              {matchResult?.rankings && (
-                <div className="bg-slate-900 rounded-lg p-3">
-                  <div className="text-xs text-gray-400 uppercase font-bold mb-2">Final Rankings</div>
-                  <div className="space-y-1">
-                    {matchResult.rankings.map((r) => {
-                      const isUser = r.agentId === assignedAgent?.id;
-                      return (
-                        <div
-                          key={r.agentId}
-                          className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
-                            isUser ? 'bg-cyan-500 bg-opacity-20 text-cyan-300' : 'text-gray-300'
-                          }`}
-                        >
-                          <span className="font-bold w-5 text-gray-400">#{r.rank}</span>
-                          <span className="flex-1">{r.name}{isUser ? ' (You)' : ''}</span>
-                          <span className="text-gray-500">{r.finalMass}</span>
-                        </div>
-                      );
-                    })}
+                  <div className="text-lg text-red-400 font-bold">
+                    -${bet.amount.toFixed(2)} USDC
                   </div>
                 </div>
               )}
@@ -355,14 +328,18 @@ export const ArenaPage: React.FC<ArenaPageProps> = ({
 
         {/* Bottom action button */}
         <div className="border-t border-slate-700 p-4 bg-slate-800">
-          {phase === 'entry' && (
+          {phase === 'betting' && selectedAgent && (
             <button
-              onClick={handleJoin}
-              disabled={!escrowInfo}
-              className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold rounded-xl text-sm uppercase tracking-wide transition-all"
+              onClick={handlePlaceBet}
+              className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold rounded-xl text-sm uppercase tracking-wide transition-all shadow-lg shadow-amber-500/25"
             >
-              Pay $0.25 & Enter Match
+              Place Bet — ${betAmount.toFixed(2)} on {selectedAgent}
             </button>
+          )}
+          {phase === 'betting' && !selectedAgent && (
+            <div className="text-xs text-center text-gray-500">
+              Select an agent to place your bet
+            </div>
           )}
           {phase === 'watching' && (
             <div className="text-xs text-center text-gray-500">
@@ -371,10 +348,10 @@ export const ArenaPage: React.FC<ArenaPageProps> = ({
           )}
           {phase === 'result' && (
             <button
-              onClick={handlePlayAgain}
+              onClick={handleBetAgain}
               className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-xl text-sm uppercase tracking-wide transition-all"
             >
-              Play Again
+              Bet Again
             </button>
           )}
         </div>

@@ -15,12 +15,12 @@ const TOTAL_ROUNDS = 3;
 const REPLAY_FRAME_INTERVAL_MS = 250; // save 1 frame per 250ms
 const REPLAY_FRAME_EVERY_N_TICKS = Math.round(REPLAY_FRAME_INTERVAL_MS / TICK_INTERVAL_MS); // 5
 
-const AGENT_CONFIG: { name: string; personality: AIPersonality; difficulty: number }[] = [
-  { name: 'APEX',    personality: 'aggressor',   difficulty: 0.8 },
-  { name: 'GHOST',   personality: 'survivor',    difficulty: 0.7 },
-  { name: 'ROGUE',   personality: 'opportunist', difficulty: 0.75 },
-  { name: 'TITAN',   personality: 'aggressor',   difficulty: 0.6 },
-  { name: 'SPECTER', personality: 'survivor',    difficulty: 0.65 },
+const AGENT_CONFIG: { name: string; personality: AIPersonality; difficulty: number; odds: number }[] = [
+  { name: 'APEX',    personality: 'aggressor',   difficulty: 0.8,  odds: 2.0 },
+  { name: 'GHOST',   personality: 'survivor',    difficulty: 0.7,  odds: 2.5 },
+  { name: 'ROGUE',   personality: 'opportunist', difficulty: 0.75, odds: 2.2 },
+  { name: 'TITAN',   personality: 'aggressor',   difficulty: 0.6,  odds: 3.5 },
+  { name: 'SPECTER', personality: 'survivor',    difficulty: 0.65, odds: 3.0 },
 ];
 
 // =============================================================================
@@ -35,6 +35,7 @@ export interface AgentMeta {
   winRate: number;
   totalEarnings: number;
   color: string;
+  odds: number;
 }
 
 export interface RankingEntry {
@@ -122,6 +123,7 @@ export class ArenaMatch {
         winRate: 0.5,
         totalEarnings: 0,
         color: blob.color.fill,
+        odds: cfg.odds,
       });
 
       this.agentScores.set(blob.id, { score: 0, kills: 0, mass: 0 });

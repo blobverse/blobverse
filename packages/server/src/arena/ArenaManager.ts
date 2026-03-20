@@ -1,11 +1,39 @@
-// ArenaManager — Schedules arena matches and exposes REST API data
+// ArenaManager — Schedules arena matches, handles betting, and exposes REST API data
 // Runs a new match every MATCH_INTERVAL_MS, keeps history of last N matches.
 
-import { ArenaMatch, MatchResult } from './ArenaMatch.js';
+import { ArenaMatch, MatchResult, AgentMeta } from './ArenaMatch.js';
 import { escrowManager } from '../wallet/index.js';
+import { nanoid } from 'nanoid';
 
 const MATCH_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes between matches
 const MAX_HISTORY = 10;
+
+// ===========================================================================
+// Betting Types
+// ===========================================================================
+
+export interface Bet {
+  betId: string;
+  matchId: string;
+  agentId: string;
+  agentName: string;
+  amount: number;
+  odds: number;
+  timestamp: number;
+  settled: boolean;
+  won?: boolean;
+  payout?: number;
+}
+
+export interface BetResult {
+  bet: Bet;
+  winnerName: string;
+  winnerAgentId: string;
+}
+
+// ===========================================================================
+// ArenaManager
+// ===========================================================================
 
 export class ArenaManager {
   private currentMatch: MatchResult | null = null;
@@ -13,6 +41,9 @@ export class ArenaManager {
   private isRunning = false;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private matchInProgress = false;
+
+  // Betting state
+  private bets = new Map<string, Bet>(); // betId → Bet
 
   start(): void {
     if (this.isRunning) return;
@@ -95,6 +126,67 @@ export class ArenaManager {
       // Attach settlement info to match result for API consumers
       result.settlement = escrowManager.getSettlementSummary(result.matchId) as MatchResult['settlement'];
     }
+  }
+
+  // ===========================================================================
+  // Betting
+  // ===========================================================================
+
+  /** Place a bet on an agent for the upcoming match */
+  placeBet(agentName: string, amount: number): Bet | null {
+    // Find agent info from current match
+    const currentAgents = this.currentMatch?.agents;
+    if (!currentAgents) return null;
+
+    const agent = currentAgents.find(a => a.name === agentName);
+    if (!agent) return null;
+
+    const bet: Bet = {
+      betId: `bet-${nanoid(8)}`,
+      matchId: this.currentMatch!.matchId,
+      agentId: agent.id,
+      agentName: agent.name,
+      amount,
+      odds: agent.odds,
+      timestamp: Date.now(),
+      settled: false,
+    };
+
+    this.bets.set(bet.betId, bet);
+    console.log(`[Arena] Bet placed: ${bet.betId} — $${amount} on ${agent.name} @ ${agent.odds}x`);
+    return bet;
+  }
+
+  /** Settle a bet based on the current match winner */
+  settleBet(betId: string): BetResult | null {
+    const bet = this.bets.get(betId);
+    if (!bet || bet.settled) return null;
+
+    const match = this.getMatchById(bet.matchId);
+    if (!match) return null;
+
+    const won = match.winner.name === bet.agentName;
+    bet.settled = true;
+    bet.won = won;
+    bet.payout = won ? bet.amount * bet.odds : 0;
+
+    console.log(`[Arena] Bet ${betId} settled: ${won ? 'WON' : 'LOST'} — payout: $${bet.payout.toFixed(2)}`);
+
+    return {
+      bet,
+      winnerName: match.winner.name,
+      winnerAgentId: match.winner.id,
+    };
+  }
+
+  getBet(betId: string): Bet | undefined {
+    return this.bets.get(betId);
+  }
+
+  /** Get agents info with odds for betting UI */
+  getAgentsForBetting(): AgentMeta[] {
+    if (!this.currentMatch) return [];
+    return this.currentMatch.agents;
   }
 
   // ===========================================================================
