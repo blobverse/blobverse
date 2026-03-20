@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import type { GameStateSnapshot } from '@blobverse/shared';
+import { WORLD_WIDTH, WORLD_HEIGHT } from '@blobverse/shared';
 import { SettlementDisplay } from './SettlementDisplay';
 
 export interface AIAgentInfo {
@@ -87,6 +88,8 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
   const [replayFrames, setReplayFrames] = useState<GameStateSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const lastUpdateTimeRef = useRef<number>(Date.now());
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -177,6 +180,118 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
   const currentFrame = replayFrames[currentFrameIndex] || null;
   const progress = replayFrames.length > 0 ? (currentFrameIndex / replayFrames.length) * 100 : 0;
 
+  // Canvas rendering for blob visualization
+  const renderCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container || !currentFrame) return;
+
+    const rect = container.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.scale(dpr, dpr);
+    const cw = rect.width;
+    const ch = rect.height;
+
+    // Fit world into canvas with padding
+    const padding = 40;
+    const scale = Math.min((cw - padding * 2) / WORLD_WIDTH, (ch - padding * 2) / WORLD_HEIGHT);
+    const offsetX = (cw - WORLD_WIDTH * scale) / 2;
+    const offsetY = (ch - WORLD_HEIGHT * scale) / 2;
+
+    // Clear
+    ctx.clearRect(0, 0, cw, ch);
+
+    // Draw world border
+    ctx.strokeStyle = 'rgba(100, 200, 255, 0.15)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(offsetX, offsetY, WORLD_WIDTH * scale, WORLD_HEIGHT * scale);
+
+    // Draw grid
+    ctx.strokeStyle = 'rgba(100, 200, 255, 0.04)';
+    ctx.lineWidth = 1;
+    const gridStep = 500;
+    for (let gx = gridStep; gx < WORLD_WIDTH; gx += gridStep) {
+      ctx.beginPath();
+      ctx.moveTo(offsetX + gx * scale, offsetY);
+      ctx.lineTo(offsetX + gx * scale, offsetY + WORLD_HEIGHT * scale);
+      ctx.stroke();
+    }
+    for (let gy = gridStep; gy < WORLD_HEIGHT; gy += gridStep) {
+      ctx.beginPath();
+      ctx.moveTo(offsetX, offsetY + gy * scale);
+      ctx.lineTo(offsetX + WORLD_WIDTH * scale, offsetY + gy * scale);
+      ctx.stroke();
+    }
+
+    // Draw blobs
+    for (const blob of currentFrame.blobs) {
+      const bx = offsetX + blob.x * scale;
+      const by = offsetY + blob.y * scale;
+      const br = Math.max(blob.radius * scale, 4);
+
+      // Glow
+      const gradient = ctx.createRadialGradient(bx, by, br * 0.3, bx, by, br * 1.5);
+      gradient.addColorStop(0, blob.color);
+      gradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(bx, by, br * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Body
+      ctx.fillStyle = blob.color;
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Highlight for user's agent
+      if (blob.id === highlightAgentId) {
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Name label
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.max(10, br * 0.6)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(blob.name, bx, by);
+
+      // Draw fragments
+      for (const frag of blob.fragments) {
+        const fx = offsetX + frag.x * scale;
+        const fy = offsetY + frag.y * scale;
+        const fr = Math.max(frag.radius * scale, 2);
+        ctx.fillStyle = blob.color;
+        ctx.beginPath();
+        ctx.arc(fx, fy, fr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }, [currentFrame, highlightAgentId]);
+
+  useEffect(() => {
+    renderCanvas();
+  }, [renderCanvas]);
+
+  // Resize observer for canvas
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(() => renderCanvas());
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [renderCanvas]);
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-slate-900 flex items-center justify-center">
@@ -204,10 +319,8 @@ export const ArenaView: React.FC<ArenaViewProps> = ({
   return (
     <div className="fixed inset-0 bg-slate-900 flex flex-col">
       {/* Main Canvas Area */}
-      <div className="flex-1 bg-gradient-to-br from-slate-800 to-slate-900 relative overflow-hidden">
-        <div id="canvas-container" className="w-full h-full" />
-
-        {/* PixiJS Canvas will be rendered here by Game class */}
+      <div className="flex-1 bg-gradient-to-br from-slate-800 to-slate-900 relative overflow-hidden" ref={containerRef}>
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 
         {/* Top: Round Timer & Info */}
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-center text-white">
