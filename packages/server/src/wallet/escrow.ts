@@ -119,12 +119,33 @@ export class EscrowManager {
 
     if (!escrow) return null;
 
+    const totalPool = Number(escrow.totalPool) / 1_000_000;
+    const prizePercentages = [
+      { rank: 1, pct: PRIZE_DISTRIBUTION.first },
+      { rank: 2, pct: PRIZE_DISTRIBUTION.second },
+      { rank: 3, pct: PRIZE_DISTRIBUTION.third },
+    ];
+
     return {
       matchId: escrow.matchId,
       agentCount: escrow.agentIds.length,
-      totalPoolUsd: Number(escrow.totalPool) / 1_000_000,
+      totalPool,
+      totalPoolUsd: totalPool,
       entryFeeUsd: ENTRY_FEE_USD,
       settled: escrow.settled,
+      timestamp: Date.now(),
+      // Client-compatible "distributions" array
+      distributions: escrow.settlements.map(s => {
+        const pctEntry = prizePercentages.find(p => p.rank === s.rank);
+        return {
+          agentId: s.agentId,
+          rank: s.rank,
+          amount: Number(s.amount) / 1_000_000,
+          percentage: pctEntry ? pctEntry.pct * 100 : 0,
+          txHash: s.txHash,
+        };
+      }),
+      // Legacy fields
       prizes: escrow.settlements.map(s => ({
         rank: s.rank,
         agentId: s.agentId,
